@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -68,27 +68,26 @@ public class HttpMessageConvertersAutoConfiguration {
 	@Bean
 	@ConditionalOnMissingBean
 	public HttpMessageConverters messageConverters() {
-		return new HttpMessageConverters(this.converters == null
-				? Collections.<HttpMessageConverter<?>>emptyList() : this.converters);
+		return new HttpMessageConverters(
+				(this.converters != null) ? this.converters : Collections.emptyList());
 	}
 
 	@Configuration
 	@ConditionalOnClass(StringHttpMessageConverter.class)
-	@EnableConfigurationProperties(HttpEncodingProperties.class)
+	@EnableConfigurationProperties(HttpProperties.class)
 	protected static class StringHttpMessageConverterConfiguration {
 
-		private final HttpEncodingProperties encodingProperties;
+		private final HttpProperties.Encoding properties;
 
-		protected StringHttpMessageConverterConfiguration(
-				HttpEncodingProperties encodingProperties) {
-			this.encodingProperties = encodingProperties;
+		protected StringHttpMessageConverterConfiguration(HttpProperties httpProperties) {
+			this.properties = httpProperties.getEncoding();
 		}
 
 		@Bean
 		@ConditionalOnMissingBean
 		public StringHttpMessageConverter stringHttpMessageConverter() {
 			StringHttpMessageConverter converter = new StringHttpMessageConverter(
-					this.encodingProperties.getCharset());
+					this.properties.getCharset());
 			converter.setWriteAcceptCharset(false);
 			return converter;
 		}

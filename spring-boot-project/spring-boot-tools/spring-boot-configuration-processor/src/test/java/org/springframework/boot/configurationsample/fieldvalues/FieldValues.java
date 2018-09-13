@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,12 @@
 package org.springframework.boot.configurationsample.fieldvalues;
 
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 
 import org.springframework.boot.configurationsample.ConfigurationProperties;
 import org.springframework.util.MimeType;
+import org.springframework.util.unit.DataSize;
 
 /**
  * Sample object containing fields with initial values.
@@ -41,7 +44,7 @@ public class FieldValues {
 
 	private static final Integer INTEGER_OBJ_CONST = 4;
 
-	private static final Charset DEFAULT_CHARSET = Charset.forName("UTF-8");
+	private static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
 
 	private static final MimeType DEFAULT_MIME_TYPE = MimeType.valueOf("text/plain");
 
@@ -77,7 +80,7 @@ public class FieldValues {
 
 	private Integer integerObjectConst = INTEGER_OBJ_CONST;
 
-	private Charset charset = Charset.forName("US-ASCII");
+	private Charset charset = StandardCharsets.US_ASCII;
 
 	private Charset charsetConst = DEFAULT_CHARSET;
 
@@ -106,5 +109,31 @@ public class FieldValues {
 	private Integer[] integerArray = new Integer[] { 42, 24 };
 
 	private FieldValues[] unknownArray = new FieldValues[] { new FieldValues() };
+
+	private Duration durationNone;
+
+	private Duration durationNanos = Duration.ofNanos(5);
+
+	private Duration durationMillis = Duration.ofMillis(10);
+
+	private Duration durationSeconds = Duration.ofSeconds(20);
+
+	private Duration durationMinutes = Duration.ofMinutes(30);
+
+	private Duration durationHours = Duration.ofHours(40);
+
+	private Duration durationDays = Duration.ofDays(50);
+
+	private DataSize dataSizeNone;
+
+	private DataSize dataSizeBytes = DataSize.ofBytes(5);
+
+	private DataSize dataSizeKilobytes = DataSize.ofKilobytes(10);
+
+	private DataSize dataSizeMegabytes = DataSize.ofMegabytes(20);
+
+	private DataSize dataSizeGigabytes = DataSize.ofGigabytes(30);
+
+	private DataSize dataSizeTerabytes = DataSize.ofTerabytes(40);
 
 }

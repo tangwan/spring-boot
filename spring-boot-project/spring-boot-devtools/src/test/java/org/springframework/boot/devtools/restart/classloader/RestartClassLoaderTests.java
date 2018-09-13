@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,8 +22,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.nio.charset.Charset;
-import java.util.ArrayList;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.jar.JarOutputStream;
@@ -53,8 +53,6 @@ public class RestartClassLoaderTests {
 			.getName();
 
 	private static final String PACKAGE_PATH = PACKAGE.replace('.', '/');
-
-	private static final Charset UTF_8 = Charset.forName("UTF-8");
 
 	@Rule
 	public ExpectedException thrown = ExpectedException.none();
@@ -89,21 +87,21 @@ public class RestartClassLoaderTests {
 		StreamUtils.copy(getClass().getResourceAsStream("Sample.class"), jarOutputStream);
 		jarOutputStream.closeEntry();
 		jarOutputStream.putNextEntry(new ZipEntry(PACKAGE_PATH + "/Sample.txt"));
-		StreamUtils.copy("fromchild", UTF_8, jarOutputStream);
+		StreamUtils.copy("fromchild", StandardCharsets.UTF_8, jarOutputStream);
 		jarOutputStream.closeEntry();
 		jarOutputStream.close();
 		return file;
 	}
 
 	@Test
-	public void parentMustNotBeNull() throws Exception {
+	public void parentMustNotBeNull() {
 		this.thrown.expect(IllegalArgumentException.class);
 		this.thrown.expectMessage("Parent must not be null");
 		new RestartClassLoader(null, new URL[] {});
 	}
 
 	@Test
-	public void updatedFilesMustNotBeNull() throws Exception {
+	public void updatedFilesMustNotBeNull() {
 		this.thrown.expect(IllegalArgumentException.class);
 		this.thrown.expectMessage("UpdatedFiles must not be null");
 		new RestartClassLoader(this.parentClassLoader, new URL[] {}, null);
@@ -143,17 +141,17 @@ public class RestartClassLoaderTests {
 	}
 
 	@Test
-	public void getDeletedResource() throws Exception {
+	public void getDeletedResource() {
 		String name = PACKAGE_PATH + "/Sample.txt";
 		this.updatedFiles.addFile(name, new ClassLoaderFile(Kind.DELETED, null));
-		assertThat(this.reloadClassLoader.getResource(name)).isEqualTo(null);
+		assertThat(this.reloadClassLoader.getResource(name)).isNull();
 	}
 
 	@Test
-	public void getDeletedResourceAsStream() throws Exception {
+	public void getDeletedResourceAsStream() {
 		String name = PACKAGE_PATH + "/Sample.txt";
 		this.updatedFiles.addFile(name, new ClassLoaderFile(Kind.DELETED, null));
-		assertThat(this.reloadClassLoader.getResourceAsStream(name)).isEqualTo(null);
+		assertThat(this.reloadClassLoader.getResourceAsStream(name)).isNull();
 	}
 
 	@Test
@@ -170,7 +168,7 @@ public class RestartClassLoaderTests {
 		String name = PACKAGE_PATH + "/Sample.txt";
 		this.updatedFiles.addFile(name, new ClassLoaderFile(Kind.DELETED, null));
 		List<URL> resources = toList(this.reloadClassLoader.getResources(name));
-		assertThat(resources.size()).isEqualTo(0);
+		assertThat(resources).isEmpty();
 	}
 
 	@Test
@@ -214,13 +212,8 @@ public class RestartClassLoaderTests {
 	}
 
 	private <T> List<T> toList(Enumeration<T> enumeration) {
-		List<T> list = new ArrayList<>();
-		if (enumeration != null) {
-			while (enumeration.hasMoreElements()) {
-				list.add(enumeration.nextElement());
-			}
-		}
-		return list;
+		return (enumeration != null) ? Collections.list(enumeration)
+				: Collections.emptyList();
 	}
 
 }

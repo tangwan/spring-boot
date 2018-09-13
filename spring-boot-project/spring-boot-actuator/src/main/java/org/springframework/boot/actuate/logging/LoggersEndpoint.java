@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import org.springframework.boot.actuate.endpoint.annotation.WriteOperation;
 import org.springframework.boot.logging.LogLevel;
 import org.springframework.boot.logging.LoggerConfiguration;
 import org.springframework.boot.logging.LoggingSystem;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
 /**
@@ -72,11 +73,12 @@ public class LoggersEndpoint {
 		Assert.notNull(name, "Name must not be null");
 		LoggerConfiguration configuration = this.loggingSystem
 				.getLoggerConfiguration(name);
-		return (configuration == null ? null : new LoggerLevels(configuration));
+		return (configuration != null) ? new LoggerLevels(configuration) : null;
 	}
 
 	@WriteOperation
-	public void configureLogLevel(@Selector String name, LogLevel configuredLevel) {
+	public void configureLogLevel(@Selector String name,
+			@Nullable LogLevel configuredLevel) {
 		Assert.notNull(name, "Name must not be empty");
 		this.loggingSystem.setLogLevel(name, configuredLevel);
 	}
@@ -110,7 +112,7 @@ public class LoggersEndpoint {
 		}
 
 		private String getName(LogLevel level) {
-			return (level == null ? null : level.name());
+			return (level != null) ? level.name() : null;
 		}
 
 		public String getConfiguredLevel() {

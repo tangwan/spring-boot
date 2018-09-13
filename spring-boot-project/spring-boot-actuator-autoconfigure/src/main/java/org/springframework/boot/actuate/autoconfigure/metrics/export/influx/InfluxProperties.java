@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,71 +16,81 @@
 
 package org.springframework.boot.actuate.autoconfigure.metrics.export.influx;
 
-import java.time.Duration;
-
 import io.micrometer.influx.InfluxConsistency;
 
-import org.springframework.boot.actuate.autoconfigure.metrics.export.StepRegistryProperties;
+import org.springframework.boot.actuate.autoconfigure.metrics.export.properties.StepRegistryProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * {@link ConfigurationProperties} for configuring Influx metrics export.
  *
  * @author Jon Schneider
+ * @author Stephane Nicoll
  * @since 2.0.0
  */
-@ConfigurationProperties(prefix = "spring.metrics.influx")
+@ConfigurationProperties(prefix = "management.metrics.export.influx")
 public class InfluxProperties extends StepRegistryProperties {
-	/**
-	 * The tag that will be mapped to "host" when shipping metrics to Influx, or
-	 * {@code null} if host should be omitted on publishing.
-	 */
-	private String db;
 
 	/**
-	 * The write consistency for each point.
+	 * Tag that will be mapped to "host" when shipping metrics to Influx.
 	 */
-	private InfluxConsistency consistency;
+	private String db = "mydb";
 
 	/**
-	 * Authenticate requests with this user. If not specified, the registry will not
-	 * attempt to present credentials to Influx.
+	 * Write consistency for each point.
+	 */
+	private InfluxConsistency consistency = InfluxConsistency.ONE;
+
+	/**
+	 * Login user of the Influx server.
 	 */
 	private String userName;
 
 	/**
-	 * Authenticate requests with this password.
+	 * Login password of the Influx server.
 	 */
 	private String password;
 
 	/**
-	 * Influx writes to the DEFAULT retention policy if one is not specified.
+	 * Retention policy to use (Influx writes to the DEFAULT retention policy if one is
+	 * not specified).
 	 */
 	private String retentionPolicy;
 
 	/**
-	 * The URI for the Influx backend.
+	 * Time period for which Influx should retain data in the current database. For
+	 * instance 7d, check the influx documentation for more details on the duration
+	 * format.
 	 */
-	private String uri;
+	private String retentionDuration;
 
 	/**
-	 * Enable GZIP compression of metrics batches published to Influx.
+	 * How many copies of the data are stored in the cluster. Must be 1 for a single node
+	 * instance.
 	 */
-	private Boolean compressed;
+	private Integer retentionReplicationFactor;
 
 	/**
-	 * The bucket filter clamping the bucket domain of timer percentiles histograms to
-	 * some max value. This is used to limit the number of buckets shipped to Prometheus
-	 * to save on storage.
+	 * Time range covered by a shard group. For instance 2w, check the influx
+	 * documentation for more details on the duration format.
 	 */
-	private Duration timerPercentilesMax = Duration.ofMinutes(2);
+	private String retentionShardDuration;
 
 	/**
-	 * The bucket filter clamping the bucket domain of timer percentiles histograms to
-	 * some min value. This is used to limit the number of buckets shipped to Prometheus
-	 * to save on storage.
+	 * URI of the Influx server.
 	 */
-	private Duration timerPercentilesMin = Duration.ofMillis(10);
+	private String uri = "http://localhost:8086";
+
+	/**
+	 * Whether to enable GZIP compression of metrics batches published to Influx.
+	 */
+	private boolean compressed = true;
+
+	/**
+	 * Whether to create the Influx database if it does not exist before attempting to
+	 * publish metrics to it.
+	 */
+	private boolean autoCreateDb = true;
 
 	public String getDb() {
 		return this.db;
@@ -122,6 +132,30 @@ public class InfluxProperties extends StepRegistryProperties {
 		this.retentionPolicy = retentionPolicy;
 	}
 
+	public String getRetentionDuration() {
+		return this.retentionDuration;
+	}
+
+	public void setRetentionDuration(String retentionDuration) {
+		this.retentionDuration = retentionDuration;
+	}
+
+	public Integer getRetentionReplicationFactor() {
+		return this.retentionReplicationFactor;
+	}
+
+	public void setRetentionReplicationFactor(Integer retentionReplicationFactor) {
+		this.retentionReplicationFactor = retentionReplicationFactor;
+	}
+
+	public String getRetentionShardDuration() {
+		return this.retentionShardDuration;
+	}
+
+	public void setRetentionShardDuration(String retentionShardDuration) {
+		this.retentionShardDuration = retentionShardDuration;
+	}
+
 	public String getUri() {
 		return this.uri;
 	}
@@ -130,27 +164,20 @@ public class InfluxProperties extends StepRegistryProperties {
 		this.uri = uri;
 	}
 
-	public Boolean getCompressed() {
+	public boolean isCompressed() {
 		return this.compressed;
 	}
 
-	public void setCompressed(Boolean compressed) {
+	public void setCompressed(boolean compressed) {
 		this.compressed = compressed;
 	}
 
-	public Duration getTimerPercentilesMax() {
-		return this.timerPercentilesMax;
+	public boolean isAutoCreateDb() {
+		return this.autoCreateDb;
 	}
 
-	public void setTimerPercentilesMax(Duration timerPercentilesMax) {
-		this.timerPercentilesMax = timerPercentilesMax;
+	public void setAutoCreateDb(boolean autoCreateDb) {
+		this.autoCreateDb = autoCreateDb;
 	}
 
-	public Duration getTimerPercentilesMin() {
-		return this.timerPercentilesMin;
-	}
-
-	public void setTimerPercentilesMin(Duration timerPercentilesMin) {
-		this.timerPercentilesMin = timerPercentilesMin;
-	}
 }

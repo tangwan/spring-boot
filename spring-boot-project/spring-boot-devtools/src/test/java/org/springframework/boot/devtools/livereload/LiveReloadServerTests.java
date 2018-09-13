@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -188,7 +188,6 @@ public class LiveReloadServerTests {
 					super.run();
 				}
 				catch (ConnectionClosedException ex) {
-					ex.printStackTrace();
 					synchronized (MonitoredLiveReloadServer.this.monitor) {
 						MonitoredLiveReloadServer.this.closedExceptions.add(ex);
 					}
@@ -226,8 +225,7 @@ public class LiveReloadServerTests {
 		}
 
 		@Override
-		protected void handleTextMessage(WebSocketSession session, TextMessage message)
-				throws Exception {
+		protected void handleTextMessage(WebSocketSession session, TextMessage message) {
 			if (message.getPayload().contains("hello")) {
 				this.helloLatch.countDown();
 			}
@@ -235,14 +233,12 @@ public class LiveReloadServerTests {
 		}
 
 		@Override
-		protected void handlePongMessage(WebSocketSession session, PongMessage message)
-				throws Exception {
+		protected void handlePongMessage(WebSocketSession session, PongMessage message) {
 			this.pongCount++;
 		}
 
 		@Override
-		public void afterConnectionClosed(WebSocketSession session, CloseStatus status)
-				throws Exception {
+		public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
 			this.closeStatus = status;
 		}
 

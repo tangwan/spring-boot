@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,16 @@ import org.springframework.web.util.pattern.PathPattern;
  */
 public final class WebFluxTags {
 
+	private static final Tag URI_NOT_FOUND = Tag.of("uri", "NOT_FOUND");
+
+	private static final Tag URI_REDIRECTION = Tag.of("uri", "REDIRECTION");
+
+	private static final Tag URI_ROOT = Tag.of("uri", "root");
+
+	private static final Tag URI_UNKNOWN = Tag.of("uri", "UNKNOWN");
+
+	private static final Tag EXCEPTION_NONE = Tag.of("exception", "None");
+
 	private WebFluxTags() {
 	}
 
@@ -46,7 +56,7 @@ public final class WebFluxTags {
 	 * @return the method tag whose value is a capitalized method (e.g. GET).
 	 */
 	public static Tag method(ServerWebExchange exchange) {
-		return Tag.of("method", exchange.getRequest().getMethod().toString());
+		return Tag.of("method", exchange.getRequest().getMethodValue());
 	}
 
 	/**
@@ -60,7 +70,7 @@ public final class WebFluxTags {
 		if (status == null) {
 			status = HttpStatus.OK;
 		}
-		return Tag.of("status", status.toString());
+		return Tag.of("status", String.valueOf(status.value()));
 	}
 
 	/**
@@ -70,14 +80,26 @@ public final class WebFluxTags {
 	 * @return the uri tag derived from the exchange
 	 */
 	public static Tag uri(ServerWebExchange exchange) {
-		PathPattern pathPattern = exchange.getAttributeOrDefault(
-				HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE, null);
-		String uri = pathPattern == null ? exchange.getRequest().getURI().toString()
-				: pathPattern.getPatternString();
-		if (!StringUtils.hasText(uri)) {
-			uri = "/";
+		if (exchange != null) {
+			PathPattern pathPattern = exchange
+					.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
+			if (pathPattern != null) {
+				return Tag.of("uri", pathPattern.getPatternString());
+			}
+			HttpStatus status = exchange.getResponse().getStatusCode();
+			if (status != null && status.is3xxRedirection()) {
+				return URI_REDIRECTION;
+			}
+			if (status != null && status.equals(HttpStatus.NOT_FOUND)) {
+				return URI_NOT_FOUND;
+			}
+			String path = exchange.getRequest().getPath().value();
+			if (path.isEmpty()) {
+				return URI_ROOT;
+			}
+			return Tag.of("uri", path);
 		}
-		return Tag.of("uri", uri.isEmpty() ? "root" : uri);
+		return URI_UNKNOWN;
 	}
 
 	/**
@@ -88,9 +110,11 @@ public final class WebFluxTags {
 	 */
 	public static Tag exception(Throwable exception) {
 		if (exception != null) {
-			return Tag.of("exception", exception.getClass().getSimpleName());
+			String simpleName = exception.getClass().getSimpleName();
+			return Tag.of("exception", StringUtils.hasText(simpleName) ? simpleName
+					: exception.getClass().getName());
 		}
-		return Tag.of("exception", "none");
+		return EXCEPTION_NONE;
 	}
 
 }

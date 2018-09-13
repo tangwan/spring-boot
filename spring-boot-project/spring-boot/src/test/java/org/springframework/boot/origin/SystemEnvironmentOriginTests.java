@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,27 +33,28 @@ public class SystemEnvironmentOriginTests {
 	public ExpectedException thrown = ExpectedException.none();
 
 	@Test
-	public void createWhenPropertyIsNullShouldThrowException() throws Exception {
+	public void createWhenPropertyIsNullShouldThrowException() {
 		this.thrown.expect(IllegalArgumentException.class);
 		new SystemEnvironmentOrigin(null);
 	}
 
 	@Test
-	public void createWhenPropertyNameIsEmptyShouldThrowException() throws Exception {
+	public void createWhenPropertyNameIsEmptyShouldThrowException() {
 		this.thrown.expect(IllegalArgumentException.class);
 		new SystemEnvironmentOrigin("");
 	}
 
 	@Test
-	public void getPropertyShouldReturnProperty() throws Exception {
+	public void getPropertyShouldReturnProperty() {
 		SystemEnvironmentOrigin origin = new SystemEnvironmentOrigin("FOO_BAR");
 		assertThat(origin.getProperty()).isEqualTo("FOO_BAR");
 	}
 
 	@Test
-	public void toStringShouldReturnStringWithDetails() throws Exception {
+	public void toStringShouldReturnStringWithDetails() {
 		SystemEnvironmentOrigin origin = new SystemEnvironmentOrigin("FOO_BAR");
 		assertThat(origin.toString())
 				.isEqualTo("System Environment Property \"FOO_BAR\"");
 	}
+
 }

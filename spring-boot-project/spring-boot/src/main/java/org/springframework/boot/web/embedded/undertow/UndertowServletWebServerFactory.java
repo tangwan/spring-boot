@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,37 +19,25 @@ package org.springframework.boot.web.embedded.undertow;
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
-import java.net.Socket;
 import java.net.URL;
-import java.nio.charset.Charset;
-import java.security.KeyManagementException;
-import java.security.KeyStore;
-import java.security.NoSuchAlgorithmException;
-import java.security.Principal;
-import java.security.PrivateKey;
-import java.security.cert.X509Certificate;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EventListener;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 
-import javax.net.ssl.KeyManager;
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLEngine;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.TrustManagerFactory;
-import javax.net.ssl.X509ExtendedKeyManager;
 import javax.servlet.ServletContainerInitializer;
 import javax.servlet.ServletContext;
+import javax.servlet.ServletContextEvent;
+import javax.servlet.ServletContextListener;
 import javax.servlet.ServletException;
 
 import io.undertow.Undertow;
 import io.undertow.Undertow.Builder;
+import io.undertow.UndertowOptions;
 import io.undertow.server.HttpHandler;
 import io.undertow.server.handlers.accesslog.AccessLogHandler;
 import io.undertow.server.handlers.accesslog.AccessLogReceiver;
@@ -63,6 +51,7 @@ import io.undertow.server.session.SessionManager;
 import io.undertow.servlet.Servlets;
 import io.undertow.servlet.api.DeploymentInfo;
 import io.undertow.servlet.api.DeploymentManager;
+import io.undertow.servlet.api.ListenerInfo;
 import io.undertow.servlet.api.MimeMapping;
 import io.undertow.servlet.api.ServletContainerInitializerInfo;
 import io.undertow.servlet.api.ServletStackTraces;
@@ -70,15 +59,11 @@ import io.undertow.servlet.handlers.DefaultServlet;
 import io.undertow.servlet.util.ImmediateInstanceFactory;
 import org.xnio.OptionMap;
 import org.xnio.Options;
-import org.xnio.Sequence;
-import org.xnio.SslClientAuthMode;
 import org.xnio.Xnio;
 import org.xnio.XnioWorker;
 
 import org.springframework.boot.web.server.ErrorPage;
 import org.springframework.boot.web.server.MimeMappings.Mapping;
-import org.springframework.boot.web.server.Ssl;
-import org.springframework.boot.web.server.Ssl.ClientAuth;
 import org.springframework.boot.web.server.WebServer;
 import org.springframework.boot.web.servlet.ServletContextInitializer;
 import org.springframework.boot.web.servlet.server.AbstractServletWebServerFactory;
@@ -86,7 +71,6 @@ import org.springframework.boot.web.servlet.server.ServletWebServerFactory;
 import org.springframework.context.ResourceLoaderAware;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.util.Assert;
-import org.springframework.util.ResourceUtils;
 
 /**
  * {@link ServletWebServerFactory} that can be used to create
@@ -103,7 +87,7 @@ import org.springframework.util.ResourceUtils;
  * @see UndertowServletWebServer
  */
 public class UndertowServletWebServerFactory extends AbstractServletWebServerFactory
-		implements ResourceLoaderAware {
+		implements ConfigurableUndertowWebServerFactory, ResourceLoaderAware {
 
 	private static final Set<Class<?>> NO_CLASSES = Collections.emptySet();
 
@@ -141,7 +125,6 @@ public class UndertowServletWebServerFactory extends AbstractServletWebServerFac
 	 * Create a new {@link UndertowServletWebServerFactory} instance.
 	 */
 	public UndertowServletWebServerFactory() {
-		super();
 		getJsp().setRegistered(false);
 	}
 
@@ -179,18 +162,14 @@ public class UndertowServletWebServerFactory extends AbstractServletWebServerFac
 
 	/**
 	 * Returns a mutable collection of the {@link UndertowBuilderCustomizer}s that will be
-	 * applied to the Undertow {@link Builder} .
+	 * applied to the Undertow {@link Builder}.
 	 * @return the customizers that will be applied
 	 */
 	public Collection<UndertowBuilderCustomizer> getBuilderCustomizers() {
 		return this.builderCustomizers;
 	}
 
-	/**
-	 * Add {@link UndertowBuilderCustomizer}s that should be used to customize the
-	 * Undertow {@link Builder}.
-	 * @param customizers the customizers to add
-	 */
+	@Override
 	public void addBuilderCustomizers(UndertowBuilderCustomizer... customizers) {
 		Assert.notNull(customizers, "Customizers must not be null");
 		this.builderCustomizers.addAll(Arrays.asList(customizers));
@@ -210,18 +189,14 @@ public class UndertowServletWebServerFactory extends AbstractServletWebServerFac
 
 	/**
 	 * Returns a mutable collection of the {@link UndertowDeploymentInfoCustomizer}s that
-	 * will be applied to the Undertow {@link DeploymentInfo} .
+	 * will be applied to the Undertow {@link DeploymentInfo}.
 	 * @return the customizers that will be applied
 	 */
 	public Collection<UndertowDeploymentInfoCustomizer> getDeploymentInfoCustomizers() {
 		return this.deploymentInfoCustomizers;
 	}
 
-	/**
-	 * Add {@link UndertowDeploymentInfoCustomizer}s that should be used to customize the
-	 * Undertow {@link DeploymentInfo}.
-	 * @param customizers the customizers to add
-	 */
+	@Override
 	public void addDeploymentInfoCustomizers(
 			UndertowDeploymentInfoCustomizer... customizers) {
 		Assert.notNull(customizers, "UndertowDeploymentInfoCustomizers must not be null");
@@ -251,7 +226,7 @@ public class UndertowServletWebServerFactory extends AbstractServletWebServerFac
 			builder.setDirectBuffers(this.directBuffers);
 		}
 		if (getSsl() != null && getSsl().isEnabled()) {
-			configureSsl(getSsl(), port, builder);
+			customizeSsl(builder);
 		}
 		else {
 			builder.addHttpListener(port, getListenAddress());
@@ -262,27 +237,11 @@ public class UndertowServletWebServerFactory extends AbstractServletWebServerFac
 		return builder;
 	}
 
-	private void configureSsl(Ssl ssl, int port, Builder builder) {
-		try {
-			SSLContext sslContext = SSLContext.getInstance(ssl.getProtocol());
-			sslContext.init(getKeyManagers(), getTrustManagers(), null);
-			builder.addHttpsListener(port, getListenAddress(), sslContext);
-			builder.setSocketOption(Options.SSL_CLIENT_AUTH_MODE,
-					getSslClientAuthMode(ssl));
-			if (ssl.getEnabledProtocols() != null) {
-				builder.setSocketOption(Options.SSL_ENABLED_PROTOCOLS,
-						Sequence.of(ssl.getEnabledProtocols()));
-			}
-			if (ssl.getCiphers() != null) {
-				builder.setSocketOption(Options.SSL_ENABLED_CIPHER_SUITES,
-						Sequence.of(ssl.getCiphers()));
-			}
-		}
-		catch (NoSuchAlgorithmException ex) {
-			throw new IllegalStateException(ex);
-		}
-		catch (KeyManagementException ex) {
-			throw new IllegalStateException(ex);
+	private void customizeSsl(Builder builder) {
+		new SslBuilderCustomizer(getPort(), getAddress(), getSsl(), getSslStoreProvider())
+				.customize(builder);
+		if (getHttp2() != null) {
+			builder.setServerOption(UndertowOptions.ENABLE_HTTP2, getHttp2().isEnabled());
 		}
 	}
 
@@ -291,93 +250,6 @@ public class UndertowServletWebServerFactory extends AbstractServletWebServerFac
 			return "0.0.0.0";
 		}
 		return getAddress().getHostAddress();
-	}
-
-	private SslClientAuthMode getSslClientAuthMode(Ssl ssl) {
-		if (ssl.getClientAuth() == ClientAuth.NEED) {
-			return SslClientAuthMode.REQUIRED;
-		}
-		if (ssl.getClientAuth() == ClientAuth.WANT) {
-			return SslClientAuthMode.REQUESTED;
-		}
-		return SslClientAuthMode.NOT_REQUESTED;
-	}
-
-	private KeyManager[] getKeyManagers() {
-		try {
-			KeyStore keyStore = getKeyStore();
-			KeyManagerFactory keyManagerFactory = KeyManagerFactory
-					.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-			Ssl ssl = getSsl();
-			char[] keyPassword = (ssl.getKeyPassword() != null
-					? ssl.getKeyPassword().toCharArray() : null);
-			if (keyPassword == null && ssl.getKeyStorePassword() != null) {
-				keyPassword = ssl.getKeyStorePassword().toCharArray();
-			}
-			keyManagerFactory.init(keyStore, keyPassword);
-			if (ssl.getKeyAlias() != null) {
-				return getConfigurableAliasKeyManagers(ssl,
-						keyManagerFactory.getKeyManagers());
-			}
-			return keyManagerFactory.getKeyManagers();
-		}
-		catch (Exception ex) {
-			throw new IllegalStateException(ex);
-		}
-	}
-
-	private KeyManager[] getConfigurableAliasKeyManagers(Ssl ssl,
-			KeyManager[] keyManagers) {
-		for (int i = 0; i < keyManagers.length; i++) {
-			if (keyManagers[i] instanceof X509ExtendedKeyManager) {
-				keyManagers[i] = new ConfigurableAliasKeyManager(
-						(X509ExtendedKeyManager) keyManagers[i], ssl.getKeyAlias());
-			}
-		}
-		return keyManagers;
-	}
-
-	private KeyStore getKeyStore() throws Exception {
-		if (getSslStoreProvider() != null) {
-			return getSslStoreProvider().getKeyStore();
-		}
-		Ssl ssl = getSsl();
-		return loadKeyStore(ssl.getKeyStoreType(), ssl.getKeyStore(),
-				ssl.getKeyStorePassword());
-	}
-
-	private TrustManager[] getTrustManagers() {
-		try {
-			KeyStore store = getTrustStore();
-			TrustManagerFactory trustManagerFactory = TrustManagerFactory
-					.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-			trustManagerFactory.init(store);
-			return trustManagerFactory.getTrustManagers();
-		}
-		catch (Exception ex) {
-			throw new IllegalStateException(ex);
-		}
-	}
-
-	private KeyStore getTrustStore() throws Exception {
-		if (getSslStoreProvider() != null) {
-			return getSslStoreProvider().getTrustStore();
-		}
-		Ssl ssl = getSsl();
-		return loadKeyStore(ssl.getTrustStoreType(), ssl.getTrustStore(),
-				ssl.getTrustStorePassword());
-	}
-
-	private KeyStore loadKeyStore(String type, String resource, String password)
-			throws Exception {
-		type = (type == null ? "JKS" : type);
-		if (resource == null) {
-			return null;
-		}
-		KeyStore store = KeyStore.getInstance(type);
-		URL url = ResourceUtils.getURL(resource);
-		store.load(url.openStream(), password == null ? null : password.toCharArray());
-		return store;
 	}
 
 	private DeploymentManager createDeploymentManager(
@@ -403,7 +275,7 @@ public class UndertowServletWebServerFactory extends AbstractServletWebServerFac
 		if (isAccessLogEnabled()) {
 			configureAccessLog(deployment);
 		}
-		if (isPersistSession()) {
+		if (getSession().isPersistent()) {
 			File dir = getValidSessionStoreDir();
 			deployment.setSessionPersistenceManager(new FileSessionPersistence(dir));
 		}
@@ -411,31 +283,46 @@ public class UndertowServletWebServerFactory extends AbstractServletWebServerFac
 		DeploymentManager manager = Servlets.newContainer().addDeployment(deployment);
 		manager.deploy();
 		SessionManager sessionManager = manager.getDeployment().getSessionManager();
-		int sessionTimeout = (getSessionTimeout() > 0 ? getSessionTimeout() : -1);
+		Duration timeoutDuration = getSession().getTimeout();
+		int sessionTimeout = (isZeroOrLess(timeoutDuration) ? -1
+				: (int) timeoutDuration.getSeconds());
 		sessionManager.setDefaultSessionTimeout(sessionTimeout);
 		return manager;
 	}
 
-	private void configureAccessLog(DeploymentInfo deploymentInfo) {
-		deploymentInfo.addInitialHandlerChainWrapper(this::createAccessLogHandler);
+	private boolean isZeroOrLess(Duration timeoutDuration) {
+		return timeoutDuration == null || timeoutDuration.isZero()
+				|| timeoutDuration.isNegative();
 	}
 
-	private AccessLogHandler createAccessLogHandler(HttpHandler handler) {
+	private void configureAccessLog(DeploymentInfo deploymentInfo) {
 		try {
 			createAccessLogDirectoryIfNecessary();
-			String prefix = (this.accessLogPrefix != null ? this.accessLogPrefix
-					: "access_log.");
-			AccessLogReceiver accessLogReceiver = new DefaultAccessLogReceiver(
-					createWorker(), this.accessLogDirectory, prefix, this.accessLogSuffix,
+			XnioWorker worker = createWorker();
+			String prefix = (this.accessLogPrefix != null) ? this.accessLogPrefix
+					: "access_log.";
+			DefaultAccessLogReceiver accessLogReceiver = new DefaultAccessLogReceiver(
+					worker, this.accessLogDirectory, prefix, this.accessLogSuffix,
 					this.accessLogRotate);
-			String formatString = (this.accessLogPattern != null) ? this.accessLogPattern
-					: "common";
-			return new AccessLogHandler(handler, accessLogReceiver, formatString,
-					Undertow.class.getClassLoader());
+			EventListener listener = new AccessLogShutdownListener(worker,
+					accessLogReceiver);
+			deploymentInfo.addListener(new ListenerInfo(AccessLogShutdownListener.class,
+					new ImmediateInstanceFactory<EventListener>(listener)));
+			deploymentInfo.addInitialHandlerChainWrapper(
+					(handler) -> createAccessLogHandler(handler, accessLogReceiver));
 		}
 		catch (IOException ex) {
 			throw new IllegalStateException("Failed to create AccessLogHandler", ex);
 		}
+	}
+
+	private AccessLogHandler createAccessLogHandler(HttpHandler handler,
+			AccessLogReceiver accessLogReceiver) {
+		createAccessLogDirectoryIfNecessary();
+		String formatString = (this.accessLogPattern != null) ? this.accessLogPattern
+				: "common";
+		return new AccessLogHandler(handler, accessLogReceiver, formatString,
+				Undertow.class.getClassLoader());
 	}
 
 	private void createAccessLogDirectoryIfNecessary() {
@@ -453,18 +340,15 @@ public class UndertowServletWebServerFactory extends AbstractServletWebServerFac
 	}
 
 	private void addLocaleMappings(DeploymentInfo deployment) {
-		for (Map.Entry<Locale, Charset> entry : getLocaleCharsetMappings().entrySet()) {
-			Locale locale = entry.getKey();
-			Charset charset = entry.getValue();
-			deployment.addLocaleCharsetMapping(locale.toString(), charset.toString());
-		}
+		getLocaleCharsetMappings().forEach((locale, charset) -> deployment
+				.addLocaleCharsetMapping(locale.toString(), charset.toString()));
 	}
 
 	private void registerServletContainerInitializerToDriveServletContextInitializers(
 			DeploymentInfo deployment, ServletContextInitializer... initializers) {
 		ServletContextInitializer[] mergedInitializers = mergeInitializers(initializers);
 		Initializer initializer = new Initializer(mergedInitializers);
-		deployment.addServletContainerInitalizer(new ServletContainerInitializerInfo(
+		deployment.addServletContainerInitializer(new ServletContainerInitializerInfo(
 				Initializer.class,
 				new ImmediateInstanceFactory<ServletContainerInitializer>(initializer),
 				NO_CLASSES));
@@ -482,43 +366,44 @@ public class UndertowServletWebServerFactory extends AbstractServletWebServerFac
 		File docBase = getCanonicalDocumentRoot(root);
 		List<URL> metaInfResourceUrls = getUrlsOfJarsWithMetaInfResources();
 		List<URL> resourceJarUrls = new ArrayList<>();
-		List<ResourceManager> resourceManagers = new ArrayList<>();
-		ResourceManager rootResourceManager = docBase.isDirectory()
-				? new FileResourceManager(docBase, 0) : new JarResourceManager(docBase);
-		resourceManagers.add(root == null ? rootResourceManager
-				: new LoaderHidingResourceManager(rootResourceManager));
+		List<ResourceManager> managers = new ArrayList<>();
+		ResourceManager rootManager = (docBase.isDirectory()
+				? new FileResourceManager(docBase, 0) : new JarResourceManager(docBase));
+		if (root != null) {
+			rootManager = new LoaderHidingResourceManager(rootManager);
+		}
+		managers.add(rootManager);
 		for (URL url : metaInfResourceUrls) {
 			if ("file".equals(url.getProtocol())) {
-				File file = new File(url.getFile());
-				if (file.isFile()) {
-					try {
+				try {
+					File file = new File(url.toURI());
+					if (file.isFile()) {
 						resourceJarUrls.add(new URL("jar:" + url + "!/"));
 					}
-					catch (MalformedURLException ex) {
-						throw new RuntimeException(ex);
+					else {
+						managers.add(new FileResourceManager(
+								new File(file, "META-INF/resources"), 0));
 					}
 				}
-				else {
-					resourceManagers.add(new FileResourceManager(
-							new File(file, "META-INF/resources"), 0));
+				catch (Exception ex) {
+					throw new RuntimeException(ex);
 				}
 			}
 			else {
 				resourceJarUrls.add(url);
 			}
 		}
-		resourceManagers.add(new MetaInfResourcesResourceManager(resourceJarUrls));
-		return new CompositeResourceManager(
-				resourceManagers.toArray(new ResourceManager[resourceManagers.size()]));
+		managers.add(new MetaInfResourcesResourceManager(resourceJarUrls));
+		return new CompositeResourceManager(managers.toArray(new ResourceManager[0]));
 	}
 
 	private File getCanonicalDocumentRoot(File docBase) {
 		try {
-			File root = docBase != null ? docBase : createTempDir("undertow-docbase");
+			File root = (docBase != null) ? docBase : createTempDir("undertow-docbase");
 			return root.getCanonicalFile();
 		}
-		catch (IOException e) {
-			throw new IllegalStateException("Cannot get canonical document root", e);
+		catch (IOException ex) {
+			throw new IllegalStateException("Cannot get canonical document root", ex);
 		}
 	}
 
@@ -568,26 +453,32 @@ public class UndertowServletWebServerFactory extends AbstractServletWebServerFac
 		this.resourceLoader = resourceLoader;
 	}
 
+	@Override
 	public void setBufferSize(Integer bufferSize) {
 		this.bufferSize = bufferSize;
 	}
 
+	@Override
 	public void setIoThreads(Integer ioThreads) {
 		this.ioThreads = ioThreads;
 	}
 
+	@Override
 	public void setWorkerThreads(Integer workerThreads) {
 		this.workerThreads = workerThreads;
 	}
 
-	public void setDirectBuffers(Boolean directBuffers) {
+	@Override
+	public void setUseDirectBuffers(Boolean directBuffers) {
 		this.directBuffers = directBuffers;
 	}
 
+	@Override
 	public void setAccessLogDirectory(File accessLogDirectory) {
 		this.accessLogDirectory = accessLogDirectory;
 	}
 
+	@Override
 	public void setAccessLogPattern(String accessLogPattern) {
 		this.accessLogPattern = accessLogPattern;
 	}
@@ -596,14 +487,17 @@ public class UndertowServletWebServerFactory extends AbstractServletWebServerFac
 		return this.accessLogPrefix;
 	}
 
+	@Override
 	public void setAccessLogPrefix(String accessLogPrefix) {
 		this.accessLogPrefix = accessLogPrefix;
 	}
 
+	@Override
 	public void setAccessLogSuffix(String accessLogSuffix) {
 		this.accessLogSuffix = accessLogSuffix;
 	}
 
+	@Override
 	public void setAccessLogEnabled(boolean accessLogEnabled) {
 		this.accessLogEnabled = accessLogEnabled;
 	}
@@ -612,6 +506,7 @@ public class UndertowServletWebServerFactory extends AbstractServletWebServerFac
 		return this.accessLogEnabled;
 	}
 
+	@Override
 	public void setAccessLogRotate(boolean accessLogRotate) {
 		this.accessLogRotate = accessLogRotate;
 	}
@@ -620,11 +515,7 @@ public class UndertowServletWebServerFactory extends AbstractServletWebServerFac
 		return this.useForwardHeaders;
 	}
 
-	/**
-	 * Set if x-forward-* headers should be processed.
-	 * @param useForwardHeaders if x-forward headers should be used
-	 * @since 1.3.0
-	 */
+	@Override
 	public void setUseForwardHeaders(boolean useForwardHeaders) {
 		this.useForwardHeaders = useForwardHeaders;
 	}
@@ -703,6 +594,7 @@ public class UndertowServletWebServerFactory extends AbstractServletWebServerFac
 				return null;
 			}
 		}
+
 	}
 
 	/**
@@ -723,69 +615,6 @@ public class UndertowServletWebServerFactory extends AbstractServletWebServerFac
 			for (ServletContextInitializer initializer : this.initializers) {
 				initializer.onStartup(servletContext);
 			}
-		}
-	}
-
-	/**
-	 * {@link X509ExtendedKeyManager} that supports custom alias configuration.
-	 */
-	private static class ConfigurableAliasKeyManager extends X509ExtendedKeyManager {
-
-		private final X509ExtendedKeyManager keyManager;
-
-		private final String alias;
-
-		ConfigurableAliasKeyManager(X509ExtendedKeyManager keyManager, String alias) {
-			this.keyManager = keyManager;
-			this.alias = alias;
-		}
-
-		@Override
-		public String chooseEngineClientAlias(String[] strings, Principal[] principals,
-				SSLEngine sslEngine) {
-			return this.keyManager.chooseEngineClientAlias(strings, principals,
-					sslEngine);
-		}
-
-		@Override
-		public String chooseEngineServerAlias(String s, Principal[] principals,
-				SSLEngine sslEngine) {
-			if (this.alias == null) {
-				return this.keyManager.chooseEngineServerAlias(s, principals, sslEngine);
-			}
-			return this.alias;
-		}
-
-		@Override
-		public String chooseClientAlias(String[] keyType, Principal[] issuers,
-				Socket socket) {
-			return this.keyManager.chooseClientAlias(keyType, issuers, socket);
-		}
-
-		@Override
-		public String chooseServerAlias(String keyType, Principal[] issuers,
-				Socket socket) {
-			return this.keyManager.chooseServerAlias(keyType, issuers, socket);
-		}
-
-		@Override
-		public X509Certificate[] getCertificateChain(String alias) {
-			return this.keyManager.getCertificateChain(alias);
-		}
-
-		@Override
-		public String[] getClientAliases(String keyType, Principal[] issuers) {
-			return this.keyManager.getClientAliases(keyType, issuers);
-		}
-
-		@Override
-		public PrivateKey getPrivateKey(String alias) {
-			return this.keyManager.getPrivateKey(alias);
-		}
-
-		@Override
-		public String[] getServerAliases(String keyType, Principal[] issuers) {
-			return this.keyManager.getServerAliases(keyType, issuers);
 		}
 
 	}
@@ -824,6 +653,35 @@ public class UndertowServletWebServerFactory extends AbstractServletWebServerFac
 		@Override
 		public void close() throws IOException {
 			this.delegate.close();
+		}
+
+	}
+
+	private static class AccessLogShutdownListener implements ServletContextListener {
+
+		private final XnioWorker worker;
+
+		private final DefaultAccessLogReceiver accessLogReceiver;
+
+		AccessLogShutdownListener(XnioWorker worker,
+				DefaultAccessLogReceiver accessLogReceiver) {
+			this.worker = worker;
+			this.accessLogReceiver = accessLogReceiver;
+		}
+
+		@Override
+		public void contextInitialized(ServletContextEvent sce) {
+		}
+
+		@Override
+		public void contextDestroyed(ServletContextEvent sce) {
+			try {
+				this.accessLogReceiver.close();
+				this.worker.shutdown();
+			}
+			catch (IOException ex) {
+				throw new IllegalStateException(ex);
+			}
 		}
 
 	}

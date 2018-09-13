@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,8 +33,8 @@ import java.util.jar.Manifest;
 import java.util.stream.Stream;
 
 import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 
+import org.springframework.boot.devtools.logger.DevToolsLogFactory;
 import org.springframework.boot.devtools.settings.DevToolsSettings;
 import org.springframework.util.StringUtils;
 
@@ -46,7 +46,7 @@ import org.springframework.util.StringUtils;
  */
 final class ChangeableUrls implements Iterable<URL> {
 
-	private static final Log logger = LogFactory.getLog(ChangeableUrls.class);
+	private static final Log logger = DevToolsLogFactory.getLog(ChangeableUrls.class);
 
 	private final List<URL> urls;
 
@@ -79,7 +79,7 @@ final class ChangeableUrls implements Iterable<URL> {
 	}
 
 	public URL[] toArray() {
-		return this.urls.toArray(new URL[this.urls.size()]);
+		return this.urls.toArray(new URL[0]);
 	}
 
 	public List<URL> toList() {
@@ -123,7 +123,7 @@ final class ChangeableUrls implements Iterable<URL> {
 	private static List<URL> getUrlsFromClassPathOfJarManifestIfPossible(URL url) {
 		JarFile jarFile = getJarFileIfPossible(url);
 		if (jarFile == null) {
-			return Collections.<URL>emptyList();
+			return Collections.emptyList();
 		}
 		try {
 			return getUrlsFromManifestClassPathAttribute(url, jarFile);
@@ -152,7 +152,7 @@ final class ChangeableUrls implements Iterable<URL> {
 			JarFile jarFile) throws IOException {
 		Manifest manifest = jarFile.getManifest();
 		if (manifest == null) {
-			return Collections.<URL>emptyList();
+			return Collections.emptyList();
 		}
 		String classPath = manifest.getMainAttributes()
 				.getValue(Attributes.Name.CLASS_PATH);

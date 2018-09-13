@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,8 +39,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * @author Stephane Nicoll
  */
 @RunWith(SpringRunner.class)
-@SpringBootTest(properties = "spring.main.web-application-type=reactive", classes = { WebTestClientSpringBootTestIntegrationTests.TestConfiguration.class,
-ExampleWebFluxApplication.class })
+@SpringBootTest(properties = "spring.main.web-application-type=reactive", classes = {
+		WebTestClientSpringBootTestIntegrationTests.TestConfiguration.class,
+		ExampleWebFluxApplication.class })
 @AutoConfigureWebTestClient
 public class WebTestClientSpringBootTestIntegrationTests {
 
@@ -63,18 +64,19 @@ public class WebTestClientSpringBootTestIntegrationTests {
 	}
 
 	@Test
-	public void shouldHaveRealService() throws Exception {
+	public void shouldHaveRealService() {
 		assertThat(this.applicationContext.getBeansOfType(ExampleRealService.class))
 				.hasSize(1);
 	}
 
 	@Configuration
 	static class TestConfiguration {
+
 		@Bean
-		public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) throws Exception {
-			http.authorizeExchange().anyExchange().permitAll();
-			return http.build();
+		public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
+			return http.authorizeExchange().anyExchange().permitAll().and().build();
 		}
+
 	}
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,19 @@
 
 package org.springframework.boot.web.embedded.jetty;
 
+import java.net.InetAddress;
 import java.util.Arrays;
 
+import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.ServerConnector;
 import org.junit.Test;
 import org.mockito.InOrder;
 
 import org.springframework.boot.web.reactive.server.AbstractReactiveWebServerFactoryTests;
 import org.springframework.http.server.reactive.HttpHandler;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -60,13 +64,11 @@ public class JettyReactiveWebServerFactoryTests
 	}
 
 	@Test
-	public void jettyCustomizersShouldBeInvoked() throws Exception {
+	public void jettyCustomizersShouldBeInvoked() {
 		HttpHandler handler = mock(HttpHandler.class);
 		JettyReactiveWebServerFactory factory = getFactory();
 		JettyServerCustomizer[] configurations = new JettyServerCustomizer[4];
-		for (int i = 0; i < configurations.length; i++) {
-			configurations[i] = mock(JettyServerCustomizer.class);
-		}
+		Arrays.setAll(configurations, (i) -> mock(JettyServerCustomizer.class));
 		factory.setServerCustomizers(Arrays.asList(configurations[0], configurations[1]));
 		factory.addServerCustomizers(configurations[2], configurations[3]);
 		this.webServer = factory.getWebServer(handler);
@@ -74,6 +76,26 @@ public class JettyReactiveWebServerFactoryTests
 		for (JettyServerCustomizer configuration : configurations) {
 			ordered.verify(configuration).customize(any(Server.class));
 		}
+	}
+
+	@Test
+	public void specificIPAddressNotReverseResolved() throws Exception {
+		JettyReactiveWebServerFactory factory = getFactory();
+		InetAddress localhost = InetAddress.getLocalHost();
+		factory.setAddress(InetAddress.getByAddress(localhost.getAddress()));
+		this.webServer = factory.getWebServer(mock(HttpHandler.class));
+		this.webServer.start();
+		Connector connector = ((JettyWebServer) this.webServer).getServer()
+				.getConnectors()[0];
+		assertThat(((ServerConnector) connector).getHost())
+				.isEqualTo(localhost.getHostAddress());
+	}
+
+	@Test
+	public void useForwardedHeaders() {
+		JettyReactiveWebServerFactory factory = getFactory();
+		factory.setUseForwardHeaders(true);
+		assertForwardHeaderIsUsed(factory);
 	}
 
 }

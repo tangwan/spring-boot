@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.activemq.artemis.core.remoting.impl.invm.TransportConstants;
 
+import org.springframework.boot.autoconfigure.jms.JmsPoolConnectionFactoryProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.NestedConfigurationProperty;
 
 /**
  * Configuration properties for Artemis.
@@ -61,6 +63,9 @@ public class ArtemisProperties {
 	private String password;
 
 	private final Embedded embedded = new Embedded();
+
+	@NestedConfigurationProperty
+	private final JmsPoolConnectionFactoryProperties pool = new JmsPoolConnectionFactoryProperties();
 
 	public ArtemisMode getMode() {
 		return this.mode;
@@ -106,6 +111,10 @@ public class ArtemisProperties {
 		return this.embedded;
 	}
 
+	public JmsPoolConnectionFactoryProperties getPool() {
+		return this.pool;
+	}
+
 	/**
 	 * Configuration for an embedded Artemis server.
 	 */
@@ -114,17 +123,17 @@ public class ArtemisProperties {
 		private static final AtomicInteger serverIdCounter = new AtomicInteger();
 
 		/**
-		 * Server id. By default, an auto-incremented counter is used.
+		 * Server ID. By default, an auto-incremented counter is used.
 		 */
 		private int serverId = serverIdCounter.getAndIncrement();
 
 		/**
-		 * Enable embedded mode if the Artemis server APIs are available.
+		 * Whether to enable embedded mode if the Artemis server APIs are available.
 		 */
 		private boolean enabled = true;
 
 		/**
-		 * Enable persistent store.
+		 * Whether to enable persistent store.
 		 */
 		private boolean persistent;
 

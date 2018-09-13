@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,9 +22,10 @@ import java.util.function.Supplier;
 import org.springframework.boot.context.annotation.Configurations;
 import org.springframework.boot.test.context.assertj.AssertableReactiveWebApplicationContext;
 import org.springframework.boot.test.util.TestPropertyValues;
+import org.springframework.boot.web.reactive.context.AnnotationConfigReactiveWebApplicationContext;
 import org.springframework.boot.web.reactive.context.ConfigurableReactiveWebApplicationContext;
-import org.springframework.boot.web.reactive.context.GenericReactiveWebApplicationContext;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextInitializer;
 
 /**
  * An {@link AbstractApplicationContextRunner ApplicationContext runner} for a
@@ -42,10 +43,10 @@ public final class ReactiveWebApplicationContextRunner extends
 
 	/**
 	 * Create a new {@link ReactiveWebApplicationContextRunner} instance using a
-	 * {@link GenericReactiveWebApplicationContext} as the underlying source.
+	 * {@link AnnotationConfigReactiveWebApplicationContext} as the underlying source.
 	 */
 	public ReactiveWebApplicationContextRunner() {
-		this(GenericReactiveWebApplicationContext::new);
+		this(AnnotationConfigReactiveWebApplicationContext::new);
 	}
 
 	/**
@@ -60,20 +61,22 @@ public final class ReactiveWebApplicationContextRunner extends
 
 	private ReactiveWebApplicationContextRunner(
 			Supplier<ConfigurableReactiveWebApplicationContext> contextFactory,
+			List<ApplicationContextInitializer<ConfigurableReactiveWebApplicationContext>> initializers,
 			TestPropertyValues environmentProperties, TestPropertyValues systemProperties,
 			ClassLoader classLoader, ApplicationContext parent,
 			List<Configurations> configurations) {
-		super(contextFactory, environmentProperties, systemProperties, classLoader,
-				parent, configurations);
+		super(contextFactory, initializers, environmentProperties, systemProperties,
+				classLoader, parent, configurations);
 	}
 
 	@Override
 	protected ReactiveWebApplicationContextRunner newInstance(
 			Supplier<ConfigurableReactiveWebApplicationContext> contextFactory,
+			List<ApplicationContextInitializer<ConfigurableReactiveWebApplicationContext>> initializers,
 			TestPropertyValues environmentProperties, TestPropertyValues systemProperties,
 			ClassLoader classLoader, ApplicationContext parent,
 			List<Configurations> configurations) {
-		return new ReactiveWebApplicationContextRunner(contextFactory,
+		return new ReactiveWebApplicationContextRunner(contextFactory, initializers,
 				environmentProperties, systemProperties, classLoader, parent,
 				configurations);
 	}

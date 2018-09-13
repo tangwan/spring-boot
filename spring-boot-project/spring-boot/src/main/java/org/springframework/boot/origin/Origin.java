@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ package org.springframework.boot.origin;
 import java.io.File;
 
 /**
- * Interface that uniquely represents the origin of an item. For example, a item loaded
+ * Interface that uniquely represents the origin of an item. For example, an item loaded
  * from a {@link File} may have an origin made up of the file name along with line/column
  * numbers.
  * <p>
@@ -35,7 +35,7 @@ public interface Origin {
 
 	/**
 	 * Find the {@link Origin} that an object originated from. Checks if the source object
-	 * is a {@link OriginProvider} and also searches exception stacks.
+	 * is an {@link OriginProvider} and also searches exception stacks.
 	 * @param source the source object or {@code null}
 	 * @return an optional {@link Origin}
 	 */

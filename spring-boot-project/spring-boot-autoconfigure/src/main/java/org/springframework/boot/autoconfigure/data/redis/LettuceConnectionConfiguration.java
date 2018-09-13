@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 package org.springframework.boot.autoconfigure.data.redis;
 
 import java.net.UnknownHostException;
-import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 
@@ -75,9 +74,8 @@ class LettuceConnectionConfiguration extends RedisConnectionConfiguration {
 	@ConditionalOnMissingBean(RedisConnectionFactory.class)
 	public LettuceConnectionFactory redisConnectionFactory(
 			ClientResources clientResources) throws UnknownHostException {
-		LettuceClientConfiguration clientConfig;
-		clientConfig = getLettuceClientConfiguration(clientResources,
-				this.properties.getLettuce().getPool());
+		LettuceClientConfiguration clientConfig = getLettuceClientConfiguration(
+				clientResources, this.properties.getLettuce().getPool());
 		return createLettuceConnectionFactory(clientConfig);
 	}
 
@@ -117,14 +115,15 @@ class LettuceConnectionConfiguration extends RedisConnectionConfiguration {
 		if (this.properties.isSsl()) {
 			builder.useSsl();
 		}
-		if (this.properties.getTimeout() != 0) {
-			builder.commandTimeout(Duration.ofMillis(this.properties.getTimeout()));
+		if (this.properties.getTimeout() != null) {
+			builder.commandTimeout(this.properties.getTimeout());
 		}
 		if (this.properties.getLettuce() != null) {
 			RedisProperties.Lettuce lettuce = this.properties.getLettuce();
-			if (lettuce.getShutdownTimeout() >= 0) {
-				builder.shutdownTimeout(Duration
-						.ofMillis(this.properties.getLettuce().getShutdownTimeout()));
+			if (lettuce.getShutdownTimeout() != null
+					&& !lettuce.getShutdownTimeout().isZero()) {
+				builder.shutdownTimeout(
+						this.properties.getLettuce().getShutdownTimeout());
 			}
 		}
 		return builder;
@@ -155,12 +154,14 @@ class LettuceConnectionConfiguration extends RedisConnectionConfiguration {
 					.poolConfig(getPoolConfig(properties));
 		}
 
-		private GenericObjectPoolConfig getPoolConfig(Pool properties) {
-			GenericObjectPoolConfig config = new GenericObjectPoolConfig();
+		private GenericObjectPoolConfig<?> getPoolConfig(Pool properties) {
+			GenericObjectPoolConfig<?> config = new GenericObjectPoolConfig<>();
 			config.setMaxTotal(properties.getMaxActive());
 			config.setMaxIdle(properties.getMaxIdle());
 			config.setMinIdle(properties.getMinIdle());
-			config.setMaxWaitMillis(properties.getMaxWait());
+			if (properties.getMaxWait() != null) {
+				config.setMaxWaitMillis(properties.getMaxWait().toMillis());
+			}
 			return config;
 		}
 

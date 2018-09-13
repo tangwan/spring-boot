@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,28 +73,28 @@ public class ClassPathChangeUploaderTests {
 	}
 
 	@Test
-	public void urlMustNotBeNull() throws Exception {
+	public void urlMustNotBeNull() {
 		this.thrown.expect(IllegalArgumentException.class);
 		this.thrown.expectMessage("URL must not be empty");
 		new ClassPathChangeUploader(null, this.requestFactory);
 	}
 
 	@Test
-	public void urlMustNotBeEmpty() throws Exception {
+	public void urlMustNotBeEmpty() {
 		this.thrown.expect(IllegalArgumentException.class);
 		this.thrown.expectMessage("URL must not be empty");
 		new ClassPathChangeUploader("", this.requestFactory);
 	}
 
 	@Test
-	public void requestFactoryMustNotBeNull() throws Exception {
+	public void requestFactoryMustNotBeNull() {
 		this.thrown.expect(IllegalArgumentException.class);
 		this.thrown.expectMessage("RequestFactory must not be null");
 		new ClassPathChangeUploader("http://localhost:8080", null);
 	}
 
 	@Test
-	public void urlMustNotBeMalformed() throws Exception {
+	public void urlMustNotBeMalformed() {
 		this.thrown.expect(IllegalArgumentException.class);
 		this.thrown.expectMessage("Malformed URL 'htttttp:///ttest'");
 		new ClassPathChangeUploader("htttttp:///ttest", this.requestFactory);
@@ -139,7 +139,7 @@ public class ClassPathChangeUploaderTests {
 
 	private void assertClassFile(ClassLoaderFile file, String content, Kind kind) {
 		assertThat(file.getContents())
-				.isEqualTo(content == null ? null : content.getBytes());
+				.isEqualTo((content != null) ? content.getBytes() : null);
 		assertThat(file.getKind()).isEqualTo(kind);
 	}
 

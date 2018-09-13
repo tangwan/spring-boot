@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,63 +22,70 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-import org.springframework.boot.actuate.endpoint.DefaultEnablement;
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
+import org.springframework.boot.actuate.endpoint.annotation.EndpointExtension;
 import org.springframework.context.annotation.Conditional;
+import org.springframework.core.env.Environment;
 
 /**
  * {@link Conditional} that checks whether an endpoint is enabled or not. Matches
- * according to the {@code defaultEnablement} and {@code types} flag that the
- * {@link Endpoint} may be restricted to.
+ * according to the endpoints specific {@link Environment} property, falling back to
+ * {@code management.endpoints.enabled-by-default} or failing that
+ * {@link Endpoint#enableByDefault()}.
  * <p>
- * When an endpoint uses {@link DefaultEnablement#DISABLED}, it will only be enabled if
- * {@code endpoint.<name>.enabled}, {@code endpoint.<name>.jmx.enabled} or
- * {@code endpoint.<name>.web.enabled} is {@code true}.
- * <p>
- * When an endpoint uses {@link DefaultEnablement#ENABLED}, it will be enabled unless
- * {@code endpoint.<name>.enabled}, {@code endpoint.<name>.jmx.enabled} or
- * {@code endpoint.<name>.web.enabled} is {@code false}.
- * <p>
- * When an endpoint uses {@link DefaultEnablement#NEUTRAL}, it will be enabled if
- * {@code endpoint.default.enabled}, {@code endpoint.default.jmx.enabled} or
- * {@code endpoint.default.web.enabled} is {@code true} and
- * {@code endpoint.<name>.enabled}, {@code endpoint.<name>.jmx.enabled} or
- * {@code endpoint.<name>.web.enabled} has not been set to {@code false}.
- * <p>
- * If any properties are set, they are evaluated from most to least specific, e.g.
- * considering a web endpoint with id {@code foo}:
- * <ol>
- * <li>endpoints.foo.web.enabled</li>
- * <li>endpoints.foo.enabled</li>
- * <li>endpoints.default.web.enabled</li>
- * <li>endpoints.default.enabled</li>
- * </ol>
- * For instance if {@code endpoints.default.enabled} is {@code false} but
- * {@code endpoints.<name>.enabled} is {@code true}, the condition will match.
- * <p>
- * This condition must be placed on a {@code @Bean} method producing an endpoint as its id
- * and other attributes are inferred from the {@link Endpoint} annotation set on the
- * return type of the factory method. Consider the following valid example:
+ * When placed on a {@code @Bean} method, the endpoint defaults to the return type of the
+ * factory method:
  *
  * <pre class="code">
  * &#064;Configuration
- * public class MyAutoConfiguration {
+ * public class MyConfiguration {
  *
- *     &#064;ConditionalOnEnabledEndpoint
+ *     &#064;ConditionalOnEnableEndpoint
  *     &#064;Bean
  *     public MyEndpoint myEndpoint() {
  *         ...
  *     }
  *
- *     &#064;Endpoint(id = "my", defaultEnablement = DefaultEnablement.DISABLED)
- *     static class MyEndpoint { ... }
+ * }</pre>
+ * <p>
+ * It is also possible to use the same mechanism for extensions:
+ *
+ * <pre class="code">
+ * &#064;Configuration
+ * public class MyConfiguration {
+ *
+ *     &#064;ConditionalOnEnableEndpoint
+ *     &#064;Bean
+ *     public MyEndpointWebExtension myEndpointWebExtension() {
+ *         ...
+ *     }
  *
  * }</pre>
  * <p>
+ * In the sample above, {@code MyEndpointWebExtension} will be created if the endpoint is
+ * enabled as defined by the rules above. {@code MyEndpointWebExtension} must be a regular
+ * extension that refers to an endpoint, something like:
  *
- * In the sample above the condition will be evaluated with the attributes specified on
- * {@code MyEndpoint}. In particular, in the absence of any property in the environment,
- * the condition will not match as this endpoint is disabled by default.
+ * <pre class="code">
+ * &#064;EndpointWebExtension(endpoint = MyEndpoint.class)
+ * public class MyEndpointWebExtension {
+ *
+ * }</pre>
+ * <p>
+ * Alternatively, the target endpoint can be manually specified for components that should
+ * only be created when a given endpoint is enabled:
+ *
+ * <pre class="code">
+ * &#064;Configuration
+ * public class MyConfiguration {
+ *
+ *     &#064;ConditionalOnEnableEndpoint(endpoint = MyEndpoint.class)
+ *     &#064;Bean
+ *     public MyComponent myComponent() {
+ *         ...
+ *     }
+ *
+ * }</pre>
  *
  * @author Stephane Nicoll
  * @since 2.0.0
@@ -89,5 +96,13 @@ import org.springframework.context.annotation.Conditional;
 @Documented
 @Conditional(OnEnabledEndpointCondition.class)
 public @interface ConditionalOnEnabledEndpoint {
+
+	/**
+	 * The endpoint type that should be checked. Inferred when the return type of the
+	 * {@code @Bean} method is either an {@link Endpoint} or an {@link EndpointExtension}.
+	 * @return the endpoint type to check
+	 * @since 2.1.0
+	 */
+	Class<?> endpoint() default Void.class;
 
 }

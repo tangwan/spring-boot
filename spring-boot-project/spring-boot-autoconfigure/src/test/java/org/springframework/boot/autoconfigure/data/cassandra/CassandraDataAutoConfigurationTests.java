@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -70,7 +70,7 @@ public class CassandraDataAutoConfigurationTests {
 
 	@Test
 	@SuppressWarnings("unchecked")
-	public void entityScanShouldSetInitialEntitySet() throws Exception {
+	public void entityScanShouldSetInitialEntitySet() {
 		load(EntityScanConfig.class);
 		CassandraMappingContext mappingContext = this.context
 				.getBean(CassandraMappingContext.class);
@@ -80,7 +80,7 @@ public class CassandraDataAutoConfigurationTests {
 	}
 
 	@Test
-	public void userTypeResolverShouldBeSet() throws Exception {
+	public void userTypeResolverShouldBeSet() {
 		load();
 		CassandraMappingContext mappingContext = this.context
 				.getBean(CassandraMappingContext.class);
@@ -158,6 +158,7 @@ public class CassandraDataAutoConfigurationTests {
 		public String convert(Person o) {
 			return null;
 		}
+
 	}
 
 	private static class Person {

@@ -29,7 +29,6 @@ import org.junit.rules.ExpectedException;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobExecution;
-import org.springframework.batch.core.JobExecutionException;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.JobRegistry;
@@ -47,12 +46,12 @@ import org.springframework.batch.support.transaction.ResourcelessTransactionMana
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
-import org.springframework.boot.autoconfigure.DatabaseInitializationMode;
 import org.springframework.boot.autoconfigure.TestAutoConfigurationPackage;
 import org.springframework.boot.autoconfigure.jdbc.EmbeddedDataSourceConfiguration;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
 import org.springframework.boot.autoconfigure.orm.jpa.test.City;
 import org.springframework.boot.autoconfigure.transaction.TransactionAutoConfiguration;
+import org.springframework.boot.jdbc.DataSourceInitializationMode;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -82,21 +81,21 @@ public class BatchAutoConfigurationTests {
 					TransactionAutoConfiguration.class));
 
 	@Test
-	public void testDefaultContext() throws Exception {
+	public void testDefaultContext() {
 		this.contextRunner.withUserConfiguration(TestConfiguration.class,
 				EmbeddedDataSourceConfiguration.class).run((context) -> {
 					assertThat(context).hasSingleBean(JobLauncher.class);
 					assertThat(context).hasSingleBean(JobExplorer.class);
 					assertThat(
 							context.getBean(BatchProperties.class).getInitializeSchema())
-									.isEqualTo(DatabaseInitializationMode.EMBEDDED);
+									.isEqualTo(DataSourceInitializationMode.EMBEDDED);
 					assertThat(new JdbcTemplate(context.getBean(DataSource.class))
 							.queryForList("select * from BATCH_JOB_EXECUTION")).isEmpty();
 				});
 	}
 
 	@Test
-	public void testNoDatabase() throws Exception {
+	public void testNoDatabase() {
 		this.contextRunner.withUserConfiguration(TestCustomConfiguration.class)
 				.run((context) -> {
 					assertThat(context).hasSingleBean(JobLauncher.class);
@@ -106,7 +105,7 @@ public class BatchAutoConfigurationTests {
 	}
 
 	@Test
-	public void testNoBatchConfiguration() throws Exception {
+	public void testNoBatchConfiguration() {
 		this.contextRunner.withUserConfiguration(EmptyConfiguration.class,
 				EmbeddedDataSourceConfiguration.class).run((context) -> {
 					assertThat(context).doesNotHaveBean(JobLauncher.class);
@@ -115,7 +114,7 @@ public class BatchAutoConfigurationTests {
 	}
 
 	@Test
-	public void testDefinesAndLaunchesJob() throws Exception {
+	public void testDefinesAndLaunchesJob() {
 		this.contextRunner.withUserConfiguration(JobConfiguration.class,
 				EmbeddedDataSourceConfiguration.class).run((context) -> {
 					assertThat(context).hasSingleBean(JobLauncher.class);
@@ -126,7 +125,7 @@ public class BatchAutoConfigurationTests {
 	}
 
 	@Test
-	public void testDefinesAndLaunchesNamedJob() throws Exception {
+	public void testDefinesAndLaunchesNamedJob() {
 		this.contextRunner
 				.withUserConfiguration(NamedJobConfigurationWithRegisteredJob.class,
 						EmbeddedDataSourceConfiguration.class)
@@ -140,7 +139,7 @@ public class BatchAutoConfigurationTests {
 	}
 
 	@Test
-	public void testDefinesAndLaunchesLocalJob() throws Exception {
+	public void testDefinesAndLaunchesLocalJob() {
 		this.contextRunner
 				.withUserConfiguration(NamedJobConfigurationWithLocalJob.class,
 						EmbeddedDataSourceConfiguration.class)
@@ -155,7 +154,7 @@ public class BatchAutoConfigurationTests {
 	}
 
 	@Test
-	public void testDisableLaunchesJob() throws Exception {
+	public void testDisableLaunchesJob() {
 		this.contextRunner
 				.withUserConfiguration(JobConfiguration.class,
 						EmbeddedDataSourceConfiguration.class)
@@ -166,7 +165,7 @@ public class BatchAutoConfigurationTests {
 	}
 
 	@Test
-	public void testDisableSchemaLoader() throws Exception {
+	public void testDisableSchemaLoader() {
 		this.contextRunner
 				.withUserConfiguration(TestConfiguration.class,
 						EmbeddedDataSourceConfiguration.class)
@@ -176,7 +175,7 @@ public class BatchAutoConfigurationTests {
 					assertThat(context).hasSingleBean(JobLauncher.class);
 					assertThat(
 							context.getBean(BatchProperties.class).getInitializeSchema())
-									.isEqualTo(DatabaseInitializationMode.NEVER);
+									.isEqualTo(DataSourceInitializationMode.NEVER);
 					this.expected.expect(BadSqlGrammarException.class);
 					new JdbcTemplate(context.getBean(DataSource.class))
 							.queryForList("select * from BATCH_JOB_EXECUTION");
@@ -184,7 +183,7 @@ public class BatchAutoConfigurationTests {
 	}
 
 	@Test
-	public void testUsingJpa() throws Exception {
+	public void testUsingJpa() {
 		this.contextRunner.withUserConfiguration(TestConfiguration.class,
 				EmbeddedDataSourceConfiguration.class,
 				HibernateJpaAutoConfiguration.class).run((context) -> {
@@ -203,7 +202,7 @@ public class BatchAutoConfigurationTests {
 	}
 
 	@Test
-	public void testRenamePrefix() throws Exception {
+	public void testRenamePrefix() {
 		this.contextRunner
 				.withUserConfiguration(TestConfiguration.class,
 						EmbeddedDataSourceConfiguration.class,
@@ -215,7 +214,7 @@ public class BatchAutoConfigurationTests {
 					assertThat(context).hasSingleBean(JobLauncher.class);
 					assertThat(
 							context.getBean(BatchProperties.class).getInitializeSchema())
-									.isEqualTo(DatabaseInitializationMode.EMBEDDED);
+									.isEqualTo(DataSourceInitializationMode.EMBEDDED);
 					assertThat(new JdbcTemplate(context.getBean(DataSource.class))
 							.queryForList("select * from PREFIX_JOB_EXECUTION"))
 									.isEmpty();
@@ -228,7 +227,7 @@ public class BatchAutoConfigurationTests {
 	}
 
 	@Test
-	public void testCustomizeJpaTransactionManagerUsingProperties() throws Exception {
+	public void testCustomizeJpaTransactionManagerUsingProperties() {
 		this.contextRunner
 				.withUserConfiguration(TestConfiguration.class,
 						EmbeddedDataSourceConfiguration.class,
@@ -246,8 +245,7 @@ public class BatchAutoConfigurationTests {
 	}
 
 	@Test
-	public void testCustomizeDataSourceTransactionManagerUsingProperties()
-			throws Exception {
+	public void testCustomizeDataSourceTransactionManagerUsingProperties() {
 		this.contextRunner
 				.withUserConfiguration(TestConfiguration.class,
 						EmbeddedDataSourceConfiguration.class)
@@ -292,12 +290,12 @@ public class BatchAutoConfigurationTests {
 		}
 
 		@Override
-		public PlatformTransactionManager getTransactionManager() throws Exception {
+		public PlatformTransactionManager getTransactionManager() {
 			return new ResourcelessTransactionManager();
 		}
 
 		@Override
-		public JobLauncher getJobLauncher() throws Exception {
+		public JobLauncher getJobLauncher() {
 			SimpleJobLauncher launcher = new SimpleJobLauncher();
 			launcher.setJobRepository(this.jobRepository);
 			return launcher;
@@ -344,8 +342,7 @@ public class BatchAutoConfigurationTests {
 				}
 
 				@Override
-				protected void doExecute(JobExecution execution)
-						throws JobExecutionException {
+				protected void doExecute(JobExecution execution) {
 					execution.setStatus(BatchStatus.COMPLETED);
 				}
 			};
@@ -376,8 +373,7 @@ public class BatchAutoConfigurationTests {
 				}
 
 				@Override
-				protected void doExecute(JobExecution execution)
-						throws JobExecutionException {
+				protected void doExecute(JobExecution execution) {
 					execution.setStatus(BatchStatus.COMPLETED);
 				}
 			};
@@ -408,8 +404,7 @@ public class BatchAutoConfigurationTests {
 				}
 
 				@Override
-				protected void doExecute(JobExecution execution)
-						throws JobExecutionException {
+				protected void doExecute(JobExecution execution) {
 					execution.setStatus(BatchStatus.COMPLETED);
 				}
 			};

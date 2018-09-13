@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,61 +27,63 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * {@link ConfigurationProperties} for configuring Ganglia metrics export.
  *
  * @author Jon Schneider
+ * @author Stephane Nicoll
  * @since 2.0.0
  */
-@ConfigurationProperties(prefix = "spring.metrics.ganglia")
+@ConfigurationProperties(prefix = "management.metrics.export.ganglia")
 public class GangliaProperties {
 
 	/**
-	 * Enable publishing to the backend.
+	 * Whether exporting of metrics to Ganglia is enabled.
 	 */
-	private Boolean enabled = true;
+	private boolean enabled = true;
 
 	/**
-	 * The step size (reporting frequency) to use.
+	 * Step size (i.e. reporting frequency) to use.
 	 */
 	private Duration step = Duration.ofMinutes(1);
 
 	/**
-	 * The base time unit used to report rates.
+	 * Base time unit used to report rates.
 	 */
-	private TimeUnit rateUnits;
+	private TimeUnit rateUnits = TimeUnit.SECONDS;
 
 	/**
-	 * The base time unit used to report durations.
+	 * Base time unit used to report durations.
 	 */
-	private TimeUnit durationUnits;
+	private TimeUnit durationUnits = TimeUnit.MILLISECONDS;
 
 	/**
 	 * Ganglia protocol version. Must be either 3.1 or 3.0.
 	 */
-	private String protocolVersion;
+	private String protocolVersion = "3.1";
 
 	/**
-	 * The UDP addressing mode, either unicast or multicast.
+	 * UDP addressing mode, either unicast or multicast.
 	 */
-	private GMetric.UDPAddressingMode addressingMode;
+	private GMetric.UDPAddressingMode addressingMode = GMetric.UDPAddressingMode.MULTICAST;
 
 	/**
-	 * The TTL for metrics on Ganglia.
+	 * Time to live for metrics on Ganglia. Set the multi-cast Time-To-Live to be one
+	 * greater than the number of hops (routers) between the hosts.
 	 */
-	private Integer timeToLive;
+	private Integer timeToLive = 1;
 
 	/**
-	 * Ganglia host used for publishing.
+	 * Host of the Ganglia server to receive exported metrics.
 	 */
-	private String host;
+	private String host = "localhost";
 
 	/**
-	 * Ganglia port used for publishing.
+	 * Port of the Ganglia server to receive exported metrics.
 	 */
-	private Integer port;
+	private Integer port = 8649;
 
-	public Boolean getEnabled() {
+	public boolean isEnabled() {
 		return this.enabled;
 	}
 
-	public void setEnabled(Boolean enabled) {
+	public void setEnabled(boolean enabled) {
 		this.enabled = enabled;
 	}
 

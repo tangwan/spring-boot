@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,9 @@
 package org.springframework.boot.web.embedded.jetty;
 
 import java.net.BindException;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -25,6 +27,7 @@ import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.NetworkConnector;
 import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.handler.ContextHandler;
 import org.eclipse.jetty.server.handler.HandlerCollection;
 import org.eclipse.jetty.server.handler.HandlerWrapper;
 import org.eclipse.jetty.util.component.AbstractLifeCycle;
@@ -44,6 +47,7 @@ import org.springframework.util.StringUtils;
  * @author David Liu
  * @author Eddú Meléndez
  * @author Brian Clozel
+ * @author Kristine Jetzke
  * @since 2.0.0
  * @see JettyReactiveWebServerFactory
  */
@@ -103,7 +107,7 @@ public class JettyWebServer implements WebServer {
 				this.server.start();
 				this.server.setStopAtShutdown(false);
 			}
-			catch (Exception ex) {
+			catch (Throwable ex) {
 				// Ensure process isn't left running
 				stopSilently();
 				throw new WebServerException("Unable to start embedded Jetty web server",
@@ -151,12 +155,15 @@ public class JettyWebServer implements WebServer {
 				}
 				this.started = true;
 				JettyWebServer.logger
-						.info("Jetty started on port(s) " + getActualPortsDescription());
+						.info("Jetty started on port(s) " + getActualPortsDescription()
+								+ " with context path '" + getContextPath() + "'");
 			}
 			catch (WebServerException ex) {
+				stopSilently();
 				throw ex;
 			}
 			catch (Exception ex) {
+				stopSilently();
 				throw new WebServerException("Unable to start embedded Jetty server", ex);
 			}
 		}
@@ -165,8 +172,10 @@ public class JettyWebServer implements WebServer {
 	private String getActualPortsDescription() {
 		StringBuilder ports = new StringBuilder();
 		for (Connector connector : this.server.getConnectors()) {
-			ports.append(ports.length() == 0 ? "" : ", ");
-			ports.append(getLocalPort(connector) + getProtocols(connector));
+			if (ports.length() != 0) {
+				ports.append(", ");
+			}
+			ports.append(getLocalPort(connector)).append(getProtocols(connector));
 		}
 		return ports.toString();
 	}
@@ -188,6 +197,12 @@ public class JettyWebServer implements WebServer {
 	private String getProtocols(Connector connector) {
 		List<String> protocols = connector.getProtocols();
 		return " (" + StringUtils.collectionToDelimitedString(protocols, ", ") + ")";
+	}
+
+	private String getContextPath() {
+		return Arrays.stream(this.server.getHandlers())
+				.filter(ContextHandler.class::isInstance).map(ContextHandler.class::cast)
+				.map(ContextHandler::getContextPath).collect(Collectors.joining(" "));
 	}
 
 	private void handleDeferredInitialize(Handler... handlers) throws Exception {

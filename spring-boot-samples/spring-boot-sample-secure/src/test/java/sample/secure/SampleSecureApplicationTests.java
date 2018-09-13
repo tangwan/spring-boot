@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,24 +57,24 @@ public class SampleSecureApplicationTests {
 	}
 
 	@Test(expected = AuthenticationException.class)
-	public void secure() throws Exception {
+	public void secure() {
 		assertThat("Hello Security").isEqualTo(this.service.secure());
 	}
 
 	@Test
-	public void authenticated() throws Exception {
+	public void authenticated() {
 		SecurityContextHolder.getContext().setAuthentication(this.authentication);
 		assertThat("Hello Security").isEqualTo(this.service.secure());
 	}
 
 	@Test
-	public void preauth() throws Exception {
+	public void preauth() {
 		SecurityContextHolder.getContext().setAuthentication(this.authentication);
 		assertThat("Hello World").isEqualTo(this.service.authorized());
 	}
 
 	@Test(expected = AccessDeniedException.class)
-	public void denied() throws Exception {
+	public void denied() {
 		SecurityContextHolder.getContext().setAuthentication(this.authentication);
 		assertThat("Goodbye World").isEqualTo(this.service.denied());
 	}

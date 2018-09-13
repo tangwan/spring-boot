@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,12 @@
 
 package org.springframework.boot.actuate.couchbase;
 
-import java.util.List;
+import java.time.Duration;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
-import com.couchbase.client.java.util.features.Version;
+import com.couchbase.client.java.bucket.BucketInfo;
+import com.couchbase.client.java.cluster.ClusterInfo;
 
 import org.springframework.boot.actuate.health.AbstractHealthIndicator;
 import org.springframework.boot.actuate.health.Health;
@@ -31,23 +34,51 @@ import org.springframework.util.StringUtils;
  * {@link HealthIndicator} for Couchbase.
  *
  * @author Eddú Meléndez
+ * @author Stephane Nicoll
  * @since 2.0.0
  */
 public class CouchbaseHealthIndicator extends AbstractHealthIndicator {
 
-	private CouchbaseOperations couchbaseOperations;
+	private final CouchbaseOperations operations;
 
-	public CouchbaseHealthIndicator(CouchbaseOperations couchbaseOperations) {
+	private final long timeout;
+
+	/**
+	 * Create an indicator with the specified {@link CouchbaseOperations} and
+	 * {@code timeout}.
+	 * @param couchbaseOperations the couchbase operations
+	 * @param timeout the request timeout
+	 */
+	public CouchbaseHealthIndicator(CouchbaseOperations couchbaseOperations,
+			Duration timeout) {
+		super("Couchbase health check failed");
 		Assert.notNull(couchbaseOperations, "CouchbaseOperations must not be null");
-		this.couchbaseOperations = couchbaseOperations;
+		Assert.notNull(timeout, "Timeout must not be null");
+		this.operations = couchbaseOperations;
+		this.timeout = timeout.toMillis();
 	}
 
 	@Override
 	protected void doHealthCheck(Health.Builder builder) throws Exception {
-		List<Version> versions = this.couchbaseOperations.getCouchbaseClusterInfo()
-				.getAllVersions();
-		builder.up().withDetail("versions",
-				StringUtils.collectionToCommaDelimitedString(versions));
+		ClusterInfo cluster = this.operations.getCouchbaseClusterInfo();
+		BucketInfo bucket = getBucketInfo();
+		String versions = StringUtils
+				.collectionToCommaDelimitedString(cluster.getAllVersions());
+		String nodes = StringUtils.collectionToCommaDelimitedString(bucket.nodeList());
+		builder.up().withDetail("versions", versions).withDetail("nodes", nodes);
+	}
+
+	private BucketInfo getBucketInfo() throws Exception {
+		try {
+			return this.operations.getCouchbaseBucket().bucketManager().info(this.timeout,
+					TimeUnit.MILLISECONDS);
+		}
+		catch (RuntimeException ex) {
+			if (ex.getCause() instanceof TimeoutException) {
+				throw (TimeoutException) ex.getCause();
+			}
+			throw ex;
+		}
 	}
 
 }

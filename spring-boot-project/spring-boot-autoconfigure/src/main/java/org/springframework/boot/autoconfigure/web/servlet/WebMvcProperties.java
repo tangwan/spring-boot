@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,14 @@
 
 package org.springframework.boot.autoconfigure.web.servlet;
 
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.http.MediaType;
+import org.springframework.util.Assert;
 import org.springframework.validation.DefaultMessageCodesResolver;
 
 /**
@@ -31,13 +33,14 @@ import org.springframework.validation.DefaultMessageCodesResolver;
  * @author Sébastien Deleuze
  * @author Stephane Nicoll
  * @author Eddú Meléndez
+ * @author Brian Clozel
  * @since 1.1
  */
 @ConfigurationProperties(prefix = "spring.mvc")
 public class WebMvcProperties {
 
 	/**
-	 * Formatting strategy for message codes (PREFIX_ERROR_CODE, POSTFIX_ERROR_CODE).
+	 * Formatting strategy for message codes. For instance, `PREFIX_ERROR_CODE`.
 	 */
 	private DefaultMessageCodesResolver.Format messageCodesResolverFormat;
 
@@ -53,40 +56,37 @@ public class WebMvcProperties {
 	private LocaleResolver localeResolver = LocaleResolver.ACCEPT_HEADER;
 
 	/**
-	 * Date format to use (e.g. dd/MM/yyyy).
+	 * Date format to use. For instance, `dd/MM/yyyy`.
 	 */
 	private String dateFormat;
 
 	/**
-	 * Dispatch TRACE requests to the FrameworkServlet doService method.
+	 * Whether to dispatch TRACE requests to the FrameworkServlet doService method.
 	 */
 	private boolean dispatchTraceRequest = false;
 
 	/**
-	 * Dispatch OPTIONS requests to the FrameworkServlet doService method.
+	 * Whether to dispatch OPTIONS requests to the FrameworkServlet doService method.
 	 */
 	private boolean dispatchOptionsRequest = true;
 
 	/**
-	 * If the content of the "default" model should be ignored during redirect scenarios.
+	 * Whether the content of the "default" model should be ignored during redirect
+	 * scenarios.
 	 */
 	private boolean ignoreDefaultModelOnRedirect = true;
 
 	/**
-	 * If a "NoHandlerFoundException" should be thrown if no Handler was found to process
-	 * a request.
+	 * Whether a "NoHandlerFoundException" should be thrown if no Handler was found to
+	 * process a request.
 	 */
 	private boolean throwExceptionIfNoHandlerFound = false;
 
 	/**
-	 * Enable warn logging of exceptions resolved by a "HandlerExceptionResolver".
+	 * Whether to enable warn logging of exceptions resolved by a
+	 * "HandlerExceptionResolver".
 	 */
 	private boolean logResolvedException = false;
-
-	/**
-	 * Maps file extensions to media types for content negotiation, e.g. yml to text/yaml.
-	 */
-	private Map<String, MediaType> mediaTypes = new LinkedHashMap<>();
 
 	/**
 	 * Path pattern used for static resources.
@@ -98,6 +98,10 @@ public class WebMvcProperties {
 	private final Servlet servlet = new Servlet();
 
 	private final View view = new View();
+
+	private final Contentnegotiation contentnegotiation = new Contentnegotiation();
+
+	private final Pathmatch pathmatch = new Pathmatch();
 
 	public DefaultMessageCodesResolver.Format getMessageCodesResolverFormat() {
 		return this.messageCodesResolverFormat;
@@ -157,14 +161,6 @@ public class WebMvcProperties {
 		this.logResolvedException = logResolvedException;
 	}
 
-	public Map<String, MediaType> getMediaTypes() {
-		return this.mediaTypes;
-	}
-
-	public void setMediaTypes(Map<String, MediaType> mediaTypes) {
-		this.mediaTypes = mediaTypes;
-	}
-
 	public boolean isDispatchOptionsRequest() {
 		return this.dispatchOptionsRequest;
 	}
@@ -201,20 +197,28 @@ public class WebMvcProperties {
 		return this.view;
 	}
 
+	public Contentnegotiation getContentnegotiation() {
+		return this.contentnegotiation;
+	}
+
+	public Pathmatch getPathmatch() {
+		return this.pathmatch;
+	}
+
 	public static class Async {
 
 		/**
-		 * Amount of time (in milliseconds) before asynchronous request handling times
-		 * out. If this value is not set, the default timeout of the underlying
-		 * implementation is used, e.g. 10 seconds on Tomcat with Servlet 3.
+		 * Amount of time before asynchronous request handling times out. If this value is
+		 * not set, the default timeout of the underlying implementation is used, e.g. 10
+		 * seconds on Tomcat with Servlet 3.
 		 */
-		private Long requestTimeout;
+		private Duration requestTimeout;
 
-		public Long getRequestTimeout() {
+		public Duration getRequestTimeout() {
 			return this.requestTimeout;
 		}
 
-		public void setRequestTimeout(Long requestTimeout) {
+		public void setRequestTimeout(Duration requestTimeout) {
 			this.requestTimeout = requestTimeout;
 		}
 
@@ -223,9 +227,23 @@ public class WebMvcProperties {
 	public static class Servlet {
 
 		/**
+		 * Path of the dispatcher servlet.
+		 */
+		private String path = "/";
+
+		/**
 		 * Load on startup priority of the dispatcher servlet.
 		 */
 		private int loadOnStartup = -1;
+
+		public String getPath() {
+			return this.path;
+		}
+
+		public void setPath(String path) {
+			Assert.notNull(path, "Path must not be null");
+			this.path = path;
+		}
 
 		public int getLoadOnStartup() {
 			return this.loadOnStartup;
@@ -233,6 +251,39 @@ public class WebMvcProperties {
 
 		public void setLoadOnStartup(int loadOnStartup) {
 			this.loadOnStartup = loadOnStartup;
+		}
+
+		public String getServletMapping() {
+			if (this.path.equals("") || this.path.equals("/")) {
+				return "/";
+			}
+			if (this.path.contains("*")) {
+				return this.path;
+			}
+			if (this.path.endsWith("/")) {
+				return this.path + "*";
+			}
+			return this.path + "/*";
+		}
+
+		public String getPath(String path) {
+			String prefix = getServletPrefix();
+			if (!path.startsWith("/")) {
+				path = "/" + path;
+			}
+			return prefix + path;
+		}
+
+		public String getServletPrefix() {
+			String result = this.path;
+			int index = result.indexOf('*');
+			if (index != -1) {
+				result = result.substring(0, index);
+			}
+			if (result.endsWith("/")) {
+				result = result.substring(0, result.length() - 1);
+			}
+			return result;
 		}
 
 	}
@@ -263,6 +314,100 @@ public class WebMvcProperties {
 
 		public void setSuffix(String suffix) {
 			this.suffix = suffix;
+		}
+
+	}
+
+	public static class Contentnegotiation {
+
+		/**
+		 * Whether the path extension in the URL path should be used to determine the
+		 * requested media type. If enabled a request "/users.pdf" will be interpreted as
+		 * a request for "application/pdf" regardless of the 'Accept' header.
+		 */
+		private boolean favorPathExtension = false;
+
+		/**
+		 * Whether a request parameter ("format" by default) should be used to determine
+		 * the requested media type.
+		 */
+		private boolean favorParameter = false;
+
+		/**
+		 * Map file extensions to media types for content negotiation. For instance, yml
+		 * to text/yaml.
+		 */
+		private Map<String, MediaType> mediaTypes = new LinkedHashMap<>();
+
+		/**
+		 * Query parameter name to use when "favor-parameter" is enabled.
+		 */
+		private String parameterName;
+
+		public boolean isFavorPathExtension() {
+			return this.favorPathExtension;
+		}
+
+		public void setFavorPathExtension(boolean favorPathExtension) {
+			this.favorPathExtension = favorPathExtension;
+		}
+
+		public boolean isFavorParameter() {
+			return this.favorParameter;
+		}
+
+		public void setFavorParameter(boolean favorParameter) {
+			this.favorParameter = favorParameter;
+		}
+
+		public Map<String, MediaType> getMediaTypes() {
+			return this.mediaTypes;
+		}
+
+		public void setMediaTypes(Map<String, MediaType> mediaTypes) {
+			this.mediaTypes = mediaTypes;
+		}
+
+		public String getParameterName() {
+			return this.parameterName;
+		}
+
+		public void setParameterName(String parameterName) {
+			this.parameterName = parameterName;
+		}
+
+	}
+
+	public static class Pathmatch {
+
+		/**
+		 * Whether to use suffix pattern match (".*") when matching patterns to requests.
+		 * If enabled a method mapped to "/users" also matches to "/users.*".
+		 */
+		private boolean useSuffixPattern = false;
+
+		/**
+		 * Whether suffix pattern matching should work only against extensions registered
+		 * with "spring.mvc.contentnegotiation.media-types.*". This is generally
+		 * recommended to reduce ambiguity and to avoid issues such as when a "." appears
+		 * in the path for other reasons.
+		 */
+		private boolean useRegisteredSuffixPattern = false;
+
+		public boolean isUseSuffixPattern() {
+			return this.useSuffixPattern;
+		}
+
+		public void setUseSuffixPattern(boolean useSuffixPattern) {
+			this.useSuffixPattern = useSuffixPattern;
+		}
+
+		public boolean isUseRegisteredSuffixPattern() {
+			return this.useRegisteredSuffixPattern;
+		}
+
+		public void setUseRegisteredSuffixPattern(boolean useRegisteredSuffixPattern) {
+			this.useRegisteredSuffixPattern = useRegisteredSuffixPattern;
 		}
 
 	}

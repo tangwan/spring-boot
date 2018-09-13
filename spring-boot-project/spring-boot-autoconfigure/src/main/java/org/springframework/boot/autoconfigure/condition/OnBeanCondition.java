@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -165,18 +166,17 @@ class OnBeanCondition extends SpringBootCondition implements ConfigurationCondit
 	private void appendMessageForMatches(StringBuilder reason,
 			Map<String, Collection<String>> matches, String description) {
 		if (!matches.isEmpty()) {
-			for (Map.Entry<String, Collection<String>> match : matches.entrySet()) {
+			matches.forEach((key, value) -> {
 				if (reason.length() > 0) {
 					reason.append(" and ");
 				}
 				reason.append("found beans ");
 				reason.append(description);
-				reason.append("'");
-				reason.append(match.getKey());
-				reason.append("'");
-				reason.append(
-						StringUtils.collectionToDelimitedString(match.getValue(), ", "));
-			}
+				reason.append(" '");
+				reason.append(key);
+				reason.append("' ");
+				reason.append(StringUtils.collectionToDelimitedString(value, ", "));
+			});
 		}
 	}
 
@@ -248,7 +248,7 @@ class OnBeanCondition extends SpringBootCondition implements ConfigurationCondit
 
 	private Collection<String> getBeanNamesForType(ListableBeanFactory beanFactory,
 			String type, ClassLoader classLoader, boolean considerHierarchy)
-					throws LinkageError {
+			throws LinkageError {
 		try {
 			Set<String> result = new LinkedHashSet<>();
 			collectBeanNamesForType(result, beanFactory,
@@ -284,7 +284,7 @@ class OnBeanCondition extends SpringBootCondition implements ConfigurationCondit
 			collectBeanNamesForAnnotation(names, beanFactory, annotationType,
 					considerHierarchy);
 		}
-		catch (ClassNotFoundException e) {
+		catch (ClassNotFoundException ex) {
 			// Continue
 		}
 		return StringUtils.toStringArray(names);
@@ -365,8 +365,7 @@ class OnBeanCondition extends SpringBootCondition implements ConfigurationCondit
 			collect(attributes, "annotation", this.annotations);
 			collect(attributes, "ignored", this.ignoredTypes);
 			collect(attributes, "ignoredType", this.ignoredTypes);
-			this.strategy = (SearchStrategy) metadata
-					.getAnnotationAttributes(annotationType.getName()).get("search");
+			this.strategy = (SearchStrategy) attributes.getFirst("search");
 			BeanTypeDeductionException deductionException = null;
 			try {
 				if (this.types.isEmpty() && this.names.isEmpty()) {
@@ -444,7 +443,7 @@ class OnBeanCondition extends SpringBootCondition implements ConfigurationCondit
 		}
 
 		public SearchStrategy getStrategy() {
-			return (this.strategy != null ? this.strategy : SearchStrategy.ALL);
+			return (this.strategy != null) ? this.strategy : SearchStrategy.ALL;
 		}
 
 		public List<String> getNames() {
@@ -479,7 +478,7 @@ class OnBeanCondition extends SpringBootCondition implements ConfigurationCondit
 				string.append(StringUtils.collectionToCommaDelimitedString(this.types));
 			}
 			string.append("; SearchStrategy: ");
-			string.append(this.strategy.toString().toLowerCase());
+			string.append(this.strategy.toString().toLowerCase(Locale.ENGLISH));
 			string.append(")");
 			return string.toString();
 		}
@@ -502,8 +501,8 @@ class OnBeanCondition extends SpringBootCondition implements ConfigurationCondit
 
 		@Override
 		protected void validate(BeanTypeDeductionException ex) {
-			Assert.isTrue(getTypes().size() == 1, annotationName() + " annotations must "
-					+ "specify only one type (got " + getTypes() + ")");
+			Assert.isTrue(getTypes().size() == 1, () -> annotationName()
+					+ " annotations must specify only one type (got " + getTypes() + ")");
 		}
 
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,17 +44,17 @@ public class SpringConfigurationPropertySourcesTests {
 	public ExpectedException thrown = ExpectedException.none();
 
 	@Test
-	public void createWhenPropertySourcesIsNullShouldThrowException() throws Exception {
+	public void createWhenPropertySourcesIsNullShouldThrowException() {
 		this.thrown.expect(IllegalArgumentException.class);
 		this.thrown.expectMessage("Sources must not be null");
 		new SpringConfigurationPropertySources(null);
 	}
 
 	@Test
-	public void shouldAdaptPropertySource() throws Exception {
+	public void shouldAdaptPropertySource() {
 		MutablePropertySources sources = new MutablePropertySources();
-		sources.addFirst(new MapPropertySource("test",
-				Collections.<String, Object>singletonMap("a", "b")));
+		sources.addFirst(
+				new MapPropertySource("test", Collections.singletonMap("a", "b")));
 		Iterator<ConfigurationPropertySource> iterator = new SpringConfigurationPropertySources(
 				sources).iterator();
 		ConfigurationPropertyName name = ConfigurationPropertyName.of("a");
@@ -64,10 +64,11 @@ public class SpringConfigurationPropertySourcesTests {
 	}
 
 	@Test
-	public void shouldAdaptSystemEnvironmentPropertySource() throws Exception {
+	public void shouldAdaptSystemEnvironmentPropertySource() {
 		MutablePropertySources sources = new MutablePropertySources();
-		sources.addLast(new SystemEnvironmentPropertySource("system",
-				Collections.<String, Object>singletonMap("SERVER_PORT", "1234")));
+		sources.addLast(new SystemEnvironmentPropertySource(
+				StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME,
+				Collections.singletonMap("SERVER_PORT", "1234")));
 		Iterator<ConfigurationPropertySource> iterator = new SpringConfigurationPropertySources(
 				sources).iterator();
 		ConfigurationPropertyName name = ConfigurationPropertyName.of("server.port");
@@ -77,14 +78,41 @@ public class SpringConfigurationPropertySourcesTests {
 	}
 
 	@Test
-	public void shouldAdaptMultiplePropertySources() throws Exception {
+	public void shouldExtendedAdaptSystemEnvironmentPropertySource() {
+		MutablePropertySources sources = new MutablePropertySources();
+		sources.addLast(new SystemEnvironmentPropertySource(
+				"test-" + StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME,
+				Collections.singletonMap("SERVER_PORT", "1234")));
+		Iterator<ConfigurationPropertySource> iterator = new SpringConfigurationPropertySources(
+				sources).iterator();
+		ConfigurationPropertyName name = ConfigurationPropertyName.of("server.port");
+		assertThat(iterator.next().getConfigurationProperty(name).getValue())
+				.isEqualTo("1234");
+		assertThat(iterator.hasNext()).isFalse();
+	}
+
+	@Test
+	public void shouldNotAdaptSystemEnvironmentPropertyOverrideSource() {
+		MutablePropertySources sources = new MutablePropertySources();
+		sources.addLast(new SystemEnvironmentPropertySource("override",
+				Collections.singletonMap("server.port", "1234")));
+		Iterator<ConfigurationPropertySource> iterator = new SpringConfigurationPropertySources(
+				sources).iterator();
+		ConfigurationPropertyName name = ConfigurationPropertyName.of("server.port");
+		assertThat(iterator.next().getConfigurationProperty(name).getValue())
+				.isEqualTo("1234");
+		assertThat(iterator.hasNext()).isFalse();
+	}
+
+	@Test
+	public void shouldAdaptMultiplePropertySources() {
 		MutablePropertySources sources = new MutablePropertySources();
 		sources.addLast(new SystemEnvironmentPropertySource("system",
-				Collections.<String, Object>singletonMap("SERVER_PORT", "1234")));
+				Collections.singletonMap("SERVER_PORT", "1234")));
 		sources.addLast(new MapPropertySource("test1",
-				Collections.<String, Object>singletonMap("server.po-rt", "4567")));
-		sources.addLast(new MapPropertySource("test2",
-				Collections.<String, Object>singletonMap("a", "b")));
+				Collections.singletonMap("server.po-rt", "4567")));
+		sources.addLast(
+				new MapPropertySource("test2", Collections.singletonMap("a", "b")));
 		Iterator<ConfigurationPropertySource> iterator = new SpringConfigurationPropertySources(
 				sources).iterator();
 		ConfigurationPropertyName name = ConfigurationPropertyName.of("server.port");
@@ -99,12 +127,12 @@ public class SpringConfigurationPropertySourcesTests {
 	}
 
 	@Test
-	public void shouldFlattenEnvironment() throws Exception {
+	public void shouldFlattenEnvironment() {
 		StandardEnvironment environment = new StandardEnvironment();
-		environment.getPropertySources().addFirst(new MapPropertySource("foo",
-				Collections.<String, Object>singletonMap("foo", "bar")));
-		environment.getPropertySources().addFirst(new MapPropertySource("far",
-				Collections.<String, Object>singletonMap("far", "far")));
+		environment.getPropertySources().addFirst(
+				new MapPropertySource("foo", Collections.singletonMap("foo", "bar")));
+		environment.getPropertySources().addFirst(
+				new MapPropertySource("far", Collections.singletonMap("far", "far")));
 		MutablePropertySources sources = new MutablePropertySources();
 		sources.addFirst(new PropertySource<Environment>("env", environment) {
 
@@ -114,22 +142,46 @@ public class SpringConfigurationPropertySourcesTests {
 			}
 
 		});
-		sources.addLast(new MapPropertySource("baz",
-				Collections.<String, Object>singletonMap("baz", "barf")));
+		sources.addLast(
+				new MapPropertySource("baz", Collections.singletonMap("baz", "barf")));
 		SpringConfigurationPropertySources configurationSources = new SpringConfigurationPropertySources(
 				sources);
 		assertThat(configurationSources.iterator()).hasSize(5);
 	}
 
 	@Test
-	public void shouldTrackChanges() throws Exception {
+	public void shouldTrackChanges() {
 		MutablePropertySources sources = new MutablePropertySources();
-		sources.addLast(new MapPropertySource("test1",
-				Collections.<String, Object>singletonMap("a", "b")));
-		assertThat(new SpringConfigurationPropertySources(sources).iterator()).hasSize(1);
-		sources.addLast(new MapPropertySource("test2",
-				Collections.<String, Object>singletonMap("b", "c")));
-		assertThat(new SpringConfigurationPropertySources(sources).iterator()).hasSize(2);
+		SpringConfigurationPropertySources configurationSources = new SpringConfigurationPropertySources(
+				sources);
+		assertThat(configurationSources.iterator()).hasSize(0);
+		MapPropertySource source1 = new MapPropertySource("test1",
+				Collections.singletonMap("a", "b"));
+		sources.addLast(source1);
+		assertThat(configurationSources.iterator()).hasSize(1);
+		MapPropertySource source2 = new MapPropertySource("test2",
+				Collections.singletonMap("b", "c"));
+		sources.addLast(source2);
+		assertThat(configurationSources.iterator()).hasSize(2);
+	}
+
+	@Test
+	public void shouldTrackWhenSourceHasIdenticalName() {
+		MutablePropertySources sources = new MutablePropertySources();
+		SpringConfigurationPropertySources configurationSources = new SpringConfigurationPropertySources(
+				sources);
+		ConfigurationPropertyName name = ConfigurationPropertyName.of("a");
+		MapPropertySource source1 = new MapPropertySource("test",
+				Collections.singletonMap("a", "s1"));
+		sources.addLast(source1);
+		assertThat(configurationSources.iterator().next().getConfigurationProperty(name)
+				.getValue()).isEqualTo("s1");
+		MapPropertySource source2 = new MapPropertySource("test",
+				Collections.singletonMap("a", "s2"));
+		sources.remove("test");
+		sources.addLast(source2);
+		assertThat(configurationSources.iterator().next().getConfigurationProperty(name)
+				.getValue()).isEqualTo("s2");
 	}
 
 }

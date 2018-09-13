@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,8 @@
 
 package org.springframework.boot.autoconfigure.couchbase;
 
-import com.couchbase.client.java.Bucket;
 import com.couchbase.client.java.Cluster;
 import com.couchbase.client.java.CouchbaseBucket;
-import com.couchbase.client.java.CouchbaseCluster;
-import com.couchbase.client.java.cluster.ClusterInfo;
-import com.couchbase.client.java.env.DefaultCouchbaseEnvironment;
 
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.AnyNestedCondition;
@@ -29,17 +25,16 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.DependsOn;
-import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.Import;
 
 /**
- * {@link EnableAutoConfiguration Auto-Configuration} for Couchbase.
+ * {@link EnableAutoConfiguration Auto-configuration} for Couchbase.
  *
  * @author Eddú Meléndez
  * @author Stephane Nicoll
+ * @author Yulin Qin
  * @since 1.4.0
  */
 @Configuration
@@ -50,73 +45,8 @@ public class CouchbaseAutoConfiguration {
 
 	@Configuration
 	@ConditionalOnMissingBean(value = CouchbaseConfiguration.class, type = "org.springframework.data.couchbase.config.CouchbaseConfigurer")
-	public static class CouchbaseConfiguration {
-
-		private final CouchbaseProperties properties;
-
-		public CouchbaseConfiguration(CouchbaseProperties properties) {
-			this.properties = properties;
-		}
-
-		@Bean
-		@Primary
-		public DefaultCouchbaseEnvironment couchbaseEnvironment() throws Exception {
-			return initializeEnvironmentBuilder(this.properties).build();
-		}
-
-		@Bean
-		@Primary
-		public Cluster couchbaseCluster() throws Exception {
-			return CouchbaseCluster.create(couchbaseEnvironment(),
-					this.properties.getBootstrapHosts());
-		}
-
-		@Bean
-		@Primary
-		@DependsOn("couchbaseClient")
-		public ClusterInfo couchbaseClusterInfo() throws Exception {
-			return couchbaseCluster()
-					.clusterManager(this.properties.getBucket().getName(),
-							this.properties.getBucket().getPassword())
-					.info();
-		}
-
-		@Bean
-		@Primary
-		public Bucket couchbaseClient() throws Exception {
-			return couchbaseCluster().openBucket(this.properties.getBucket().getName(),
-					this.properties.getBucket().getPassword());
-		}
-
-		/**
-		 * Initialize an environment builder based on the specified settings.
-		 * @param properties the couchbase properties to use
-		 * @return the {@link DefaultCouchbaseEnvironment} builder.
-		 */
-		protected DefaultCouchbaseEnvironment.Builder initializeEnvironmentBuilder(
-				CouchbaseProperties properties) {
-			CouchbaseProperties.Endpoints endpoints = properties.getEnv().getEndpoints();
-			CouchbaseProperties.Timeouts timeouts = properties.getEnv().getTimeouts();
-			DefaultCouchbaseEnvironment.Builder builder = DefaultCouchbaseEnvironment
-					.builder().connectTimeout(timeouts.getConnect())
-					.kvEndpoints(endpoints.getKeyValue())
-					.kvTimeout(timeouts.getKeyValue())
-					.queryEndpoints(endpoints.getQuery())
-					.queryTimeout(timeouts.getQuery()).viewEndpoints(endpoints.getView())
-					.socketConnectTimeout(timeouts.getSocketConnect())
-					.viewTimeout(timeouts.getView());
-			CouchbaseProperties.Ssl ssl = properties.getEnv().getSsl();
-			if (ssl.getEnabled()) {
-				builder.sslEnabled(true);
-				if (ssl.getKeyStore() != null) {
-					builder.sslKeystoreFile(ssl.getKeyStore());
-				}
-				if (ssl.getKeyStorePassword() != null) {
-					builder.sslKeystorePassword(ssl.getKeyStorePassword());
-				}
-			}
-			return builder;
-		}
+	@Import(CouchbaseConfiguration.class)
+	static class DefaultCouchbaseConfiguration {
 
 	}
 

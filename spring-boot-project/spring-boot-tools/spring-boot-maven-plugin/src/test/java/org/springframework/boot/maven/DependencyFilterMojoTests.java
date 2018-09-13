@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ import java.util.Set;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.shared.artifact.filter.collection.ArtifactsFilter;
 import org.apache.maven.shared.artifact.filter.collection.ScopeFilter;
 import org.junit.Test;
@@ -43,12 +42,12 @@ public class DependencyFilterMojoTests {
 	@Test
 	public void filterDependencies() throws MojoExecutionException {
 		TestableDependencyFilterMojo mojo = new TestableDependencyFilterMojo(
-				Collections.<Exclude>emptyList(), "com.foo", "exclude-id");
+				Collections.emptyList(), "com.foo");
 
 		Artifact artifact = createArtifact("com.bar", "one");
 		Set<Artifact> artifacts = mojo.filterDependencies(
 				createArtifact("com.foo", "one"), createArtifact("com.foo", "two"),
-				createArtifact("com.bar", "exclude-id"), artifact);
+				artifact);
 		assertThat(artifacts).hasSize(1);
 		assertThat(artifacts.iterator().next()).isSameAs(artifact);
 	}
@@ -56,7 +55,7 @@ public class DependencyFilterMojoTests {
 	@Test
 	public void filterGroupIdExactMatch() throws MojoExecutionException {
 		TestableDependencyFilterMojo mojo = new TestableDependencyFilterMojo(
-				Collections.<Exclude>emptyList(), "com.foo", "");
+				Collections.emptyList(), "com.foo");
 
 		Artifact artifact = createArtifact("com.foo.bar", "one");
 		Set<Artifact> artifacts = mojo.filterDependencies(
@@ -69,7 +68,7 @@ public class DependencyFilterMojoTests {
 	@Test
 	public void filterScopeKeepOrder() throws MojoExecutionException {
 		TestableDependencyFilterMojo mojo = new TestableDependencyFilterMojo(
-				Collections.<Exclude>emptyList(), "", "",
+				Collections.emptyList(), "",
 				new ScopeFilter(null, Artifact.SCOPE_SYSTEM));
 		Artifact one = createArtifact("com.foo", "one");
 		Artifact two = createArtifact("com.foo", "two", Artifact.SCOPE_SYSTEM);
@@ -79,21 +78,9 @@ public class DependencyFilterMojoTests {
 	}
 
 	@Test
-	public void filterArtifactIdKeepOrder() throws MojoExecutionException {
-		TestableDependencyFilterMojo mojo = new TestableDependencyFilterMojo(
-				Collections.<Exclude>emptyList(), "", "one,three");
-		Artifact one = createArtifact("com.foo", "one");
-		Artifact two = createArtifact("com.foo", "two");
-		Artifact three = createArtifact("com.foo", "three");
-		Artifact four = createArtifact("com.foo", "four");
-		Set<Artifact> artifacts = mojo.filterDependencies(one, two, three, four);
-		assertThat(artifacts).containsExactly(two, four);
-	}
-
-	@Test
 	public void filterGroupIdKeepOrder() throws MojoExecutionException {
 		TestableDependencyFilterMojo mojo = new TestableDependencyFilterMojo(
-				Collections.<Exclude>emptyList(), "com.foo", "");
+				Collections.emptyList(), "com.foo");
 		Artifact one = createArtifact("com.foo", "one");
 		Artifact two = createArtifact("com.bar", "two");
 		Artifact three = createArtifact("com.bar", "three");
@@ -108,7 +95,7 @@ public class DependencyFilterMojoTests {
 		exclude.setGroupId("com.bar");
 		exclude.setArtifactId("two");
 		TestableDependencyFilterMojo mojo = new TestableDependencyFilterMojo(
-				Collections.singletonList(exclude), "", "");
+				Collections.singletonList(exclude), "");
 		Artifact one = createArtifact("com.foo", "one");
 		Artifact two = createArtifact("com.bar", "two");
 		Artifact three = createArtifact("com.bar", "three");
@@ -138,11 +125,9 @@ public class DependencyFilterMojoTests {
 		private final ArtifactsFilter[] additionalFilters;
 
 		private TestableDependencyFilterMojo(List<Exclude> excludes,
-				String excludeGroupIds, String excludeArtifactIds,
-				ArtifactsFilter... additionalFilters) {
+				String excludeGroupIds, ArtifactsFilter... additionalFilters) {
 			setExcludes(excludes);
 			setExcludeGroupIds(excludeGroupIds);
-			setExcludeArtifactIds(excludeArtifactIds);
 			this.additionalFilters = additionalFilters;
 		}
 
@@ -153,7 +138,7 @@ public class DependencyFilterMojoTests {
 		}
 
 		@Override
-		public void execute() throws MojoExecutionException, MojoFailureException {
+		public void execute() {
 
 		}
 

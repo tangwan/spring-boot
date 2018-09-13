@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ import java.util.regex.Pattern;
 import org.springframework.util.Assert;
 
 /**
- * Strategy that be be used by endpoint implementations to sanitize potentially sensitive
- * keys.
+ * Strategy that should be used by endpoint implementations to sanitize potentially
+ * sensitive keys.
  *
  * @author Christian Dupuis
  * @author Toshiaki Maki
@@ -38,7 +38,8 @@ public class Sanitizer {
 	private Pattern[] keysToSanitize;
 
 	public Sanitizer() {
-		this("password", "secret", "key", "token", ".*credentials.*", "vcap_services");
+		this("password", "secret", "key", "token", ".*credentials.*", "vcap_services",
+				"sun.java.command");
 	}
 
 	public Sanitizer(String... keysToSanitize) {
@@ -81,9 +82,12 @@ public class Sanitizer {
 	 * @return the potentially sanitized value
 	 */
 	public Object sanitize(String key, Object value) {
+		if (value == null) {
+			return null;
+		}
 		for (Pattern pattern : this.keysToSanitize) {
 			if (pattern.matcher(key).matches()) {
-				return (value == null ? null : "******");
+				return "******";
 			}
 		}
 		return value;

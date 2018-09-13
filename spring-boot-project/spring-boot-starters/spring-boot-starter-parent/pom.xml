@@ -21,21 +21,6 @@
 		<maven.compiler.source>${java.version}</maven.compiler.source>
 		<maven.compiler.target>${java.version}</maven.compiler.target>
 	</properties>
-	<dependencyManagement>
-		<dependencies>
-			<dependency>
-				<groupId>org.springframework</groupId>
-				<artifactId>spring-core</artifactId>
-				<version>${spring.version}</version>
-				<exclusions>
-					<exclusion>
-						<groupId>commons-logging</groupId>
-						<artifactId>commons-logging</artifactId>
-					</exclusion>
-				</exclusions>
-			</dependency>
-		</dependencies>
-	</dependencyManagement>
 	<build>
 		<!-- Turn on filtering by default for application properties -->
 		<resources>
@@ -61,6 +46,31 @@
 			<plugins>
 				<!-- Apply more sensible defaults for user projects -->
 				<plugin>
+					<groupId>org.jetbrains.kotlin</groupId>
+					<artifactId>kotlin-maven-plugin</artifactId>
+					<version>${kotlin.version}</version>
+					<configuration>
+						<jvmTarget>${java.version}</jvmTarget>
+						<javaParameters>true</javaParameters>
+					</configuration>
+					<executions>
+						<execution>
+							<id>compile</id>
+							<phase>compile</phase>
+							<goals>
+								<goal>compile</goal>
+							</goals>
+						</execution>
+						<execution>
+							<id>test-compile</id>
+							<phase>test-compile</phase>
+							<goals>
+								<goal>test-compile</goal>
+							</goals>
+						</execution>
+					</executions>
+				</plugin>
+				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-compiler-plugin</artifactId>
 					<configuration>
@@ -78,6 +88,9 @@
 							</goals>
 						</execution>
 					</executions>
+					<configuration>
+						<classesDirectory>${project.build.outputDirectory}</classesDirectory>
+					</configuration>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
@@ -143,6 +156,7 @@
 					<artifactId>spring-boot-maven-plugin</artifactId>
 					<executions>
 						<execution>
+							<id>repackage</id>
 							<goals>
 								<goal>repackage</goal>
 							</goals>
@@ -170,6 +184,13 @@
 							</filter>
 						</filters>
 					</configuration>
+					<dependencies>
+						<dependency>
+							<groupId>org.springframework.boot</groupId>
+							<artifactId>spring-boot-maven-plugin</artifactId>
+							<version>${revision}</version>
+						</dependency>
+					</dependencies>
 					<executions>
 						<execution>
 							<phase>package</phase>
@@ -201,7 +222,8 @@
 						</execution>
 					</executions>
 				</plugin>
-				<!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
+				<!--This plugin's configuration is used to store Eclipse m2e settings
+					only. It has no influence on the Maven build itself. -->
 				<plugin>
 					<groupId>org.eclipse.m2e</groupId>
 					<artifactId>lifecycle-mapping</artifactId>
@@ -222,6 +244,25 @@
 										</versionRange>
 										<goals>
 											<goal>flatten</goal>
+										</goals>
+									</pluginExecutionFilter>
+									<action>
+										<ignore></ignore>
+									</action>
+								</pluginExecution>
+								<pluginExecution>
+									<pluginExecutionFilter>
+										<groupId>
+											org.apache.maven.plugins
+										</groupId>
+										<artifactId>
+											maven-checkstyle-plugin
+										</artifactId>
+										<versionRange>
+											[3.0.0,)
+										</versionRange>
+										<goals>
+											<goal>check</goal>
 										</goals>
 									</pluginExecutionFilter>
 									<action>
@@ -250,10 +291,13 @@
 						<configuration>
 							<updatePomFile>true</updatePomFile>
 							<pomElements>
-								<pluginManagement>keep</pluginManagement>
 								<parent>expand</parent>
-								<dependencyManagement>keep</dependencyManagement>
+								<name>keep</name>
+								<description>keep</description>
+								<url>expand</url>
 								<properties>keep</properties>
+								<pluginManagement>keep</pluginManagement>
+								<dependencyManagement>keep</dependencyManagement>
 								<build>keep</build>
 							</pomElements>
 						</configuration>

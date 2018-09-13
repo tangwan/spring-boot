@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package org.springframework.boot.actuate.autoconfigure.env;
 
 import org.springframework.boot.actuate.autoconfigure.endpoint.condition.ConditionalOnEnabledEndpoint;
 import org.springframework.boot.actuate.env.EnvironmentEndpoint;
-import org.springframework.boot.actuate.env.EnvironmentWebEndpointExtension;
+import org.springframework.boot.actuate.env.EnvironmentEndpointWebExtension;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -61,9 +61,9 @@ public class EnvironmentEndpointAutoConfiguration {
 	@ConditionalOnMissingBean
 	@ConditionalOnEnabledEndpoint
 	@ConditionalOnBean(EnvironmentEndpoint.class)
-	public EnvironmentWebEndpointExtension environmentWebEndpointExtension(
+	public EnvironmentEndpointWebExtension environmentEndpointWebExtension(
 			EnvironmentEndpoint environmentEndpoint) {
-		return new EnvironmentWebEndpointExtension(environmentEndpoint);
+		return new EnvironmentEndpointWebExtension(environmentEndpoint);
 	}
 
 }

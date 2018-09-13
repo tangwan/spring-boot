@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@ import org.springframework.kafka.security.jaas.KafkaJaasLoginModuleInitializer;
 import org.springframework.kafka.support.LoggingProducerListener;
 import org.springframework.kafka.support.ProducerListener;
 import org.springframework.kafka.support.converter.RecordMessageConverter;
+import org.springframework.kafka.transaction.KafkaTransactionManager;
 
 /**
  * {@link EnableAutoConfiguration Auto-configuration} for Apache Kafka.
@@ -45,12 +46,14 @@ import org.springframework.kafka.support.converter.RecordMessageConverter;
  * @author Gary Russell
  * @author Stephane Nicoll
  * @author Eddú Meléndez
+ * @author Nakul Mishra
  * @since 1.5.0
  */
 @Configuration
 @ConditionalOnClass(KafkaTemplate.class)
 @EnableConfigurationProperties(KafkaProperties.class)
-@Import(KafkaAnnotationDrivenConfiguration.class)
+@Import({ KafkaAnnotationDrivenConfiguration.class,
+		KafkaStreamsAnnotationDrivenConfiguration.class })
 public class KafkaAutoConfiguration {
 
 	private final KafkaProperties properties;
@@ -94,8 +97,22 @@ public class KafkaAutoConfiguration {
 	@Bean
 	@ConditionalOnMissingBean(ProducerFactory.class)
 	public ProducerFactory<?, ?> kafkaProducerFactory() {
-		return new DefaultKafkaProducerFactory<>(
+		DefaultKafkaProducerFactory<?, ?> factory = new DefaultKafkaProducerFactory<>(
 				this.properties.buildProducerProperties());
+		String transactionIdPrefix = this.properties.getProducer()
+				.getTransactionIdPrefix();
+		if (transactionIdPrefix != null) {
+			factory.setTransactionIdPrefix(transactionIdPrefix);
+		}
+		return factory;
+	}
+
+	@Bean
+	@ConditionalOnProperty(name = "spring.kafka.producer.transaction-id-prefix")
+	@ConditionalOnMissingBean
+	public KafkaTransactionManager<?, ?> kafkaTransactionManager(
+			ProducerFactory<?, ?> producerFactory) {
+		return new KafkaTransactionManager<>(producerFactory);
 	}
 
 	@Bean
@@ -115,7 +132,7 @@ public class KafkaAutoConfiguration {
 	}
 
 	@Bean
-	@ConditionalOnMissingBean(KafkaAdmin.class)
+	@ConditionalOnMissingBean
 	public KafkaAdmin kafkaAdmin() {
 		KafkaAdmin kafkaAdmin = new KafkaAdmin(this.properties.buildAdminProperties());
 		kafkaAdmin.setFatalIfBrokerNotAvailable(this.properties.getAdmin().isFailFast());

@@ -46,7 +46,7 @@ class DefinitionsParser {
 	private final Map<Definition, Field> definitionFields;
 
 	DefinitionsParser() {
-		this(Collections.<Definition>emptySet());
+		this(Collections.emptySet());
 	}
 
 	DefinitionsParser(Collection<? extends Definition> existing) {
@@ -109,8 +109,8 @@ class DefinitionsParser {
 	private void addDefinition(AnnotatedElement element, Definition definition,
 			String type) {
 		boolean isNewDefinition = this.definitions.add(definition);
-		Assert.state(isNewDefinition, () ->
-				"Duplicate " + type + " definition " + definition);
+		Assert.state(isNewDefinition,
+				() -> "Duplicate " + type + " definition " + definition);
 		if (element instanceof Field) {
 			Field field = (Field) element;
 			this.definitionFields.put(definition, field);

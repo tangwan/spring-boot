@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,8 +29,9 @@ import org.springframework.util.ObjectUtils;
 /**
  * A configuration property name composed of elements separated by dots. User created
  * names may contain the characters "{@code a-z}" "{@code 0-9}") and "{@code -}", they
- * must be lower-case and must start with a letter. The "{@code -}" is used purely for
- * formatting, i.e. "{@code foo-bar}" and "{@code foobar}" are considered equivalent.
+ * must be lower-case and must start with an alpha-numeric character. The "{@code -}" is
+ * used purely for formatting, i.e. "{@code foo-bar}" and "{@code foobar}" are considered
+ * equivalent.
  * <p>
  * The "{@code [}" and "{@code ]}" characters may be used to indicate an associative
  * index(i.e. a {@link Map} key or a {@link Collection} index. Indexes names are not
@@ -130,7 +131,7 @@ public final class ConfigurationPropertyName
 	 */
 	public String getLastElement(Form form) {
 		int size = getNumberOfElements();
-		return (size == 0 ? EMPTY_STRING : getElement(size - 1, form));
+		return (size != 0) ? getElement(size - 1, form) : EMPTY_STRING;
 	}
 
 	/**
@@ -258,10 +259,10 @@ public final class ConfigurationPropertyName
 		int i1 = 0;
 		int i2 = 0;
 		while (i1 < l1 || i2 < l2) {
-			boolean indexed1 = (i1 < l1 ? n1.isIndexed(i2) : false);
-			boolean indexed2 = (i2 < l2 ? n2.isIndexed(i2) : false);
-			String e1 = (i1 < l1 ? n1.getElement(i1++, Form.UNIFORM) : null);
-			String e2 = (i2 < l2 ? n2.getElement(i2++, Form.UNIFORM) : null);
+			boolean indexed1 = (i1 < l1) ? n1.isIndexed(i2) : false;
+			boolean indexed2 = (i2 < l2) ? n2.isIndexed(i2) : false;
+			String e1 = (i1 < l1) ? n1.getElement(i1++, Form.UNIFORM) : null;
+			String e2 = (i2 < l2) ? n2.getElement(i2++, Form.UNIFORM) : null;
 			int result = compare(e1, indexed1, e2, indexed2);
 			if (result != 0) {
 				return result;
@@ -295,31 +296,61 @@ public final class ConfigurationPropertyName
 	}
 
 	@Override
-	public String toString() {
-		if (this.string == null) {
-			this.string = toString(this.elements);
+	public boolean equals(Object obj) {
+		if (obj == this) {
+			return true;
 		}
-		return this.string;
+		if (obj == null || obj.getClass() != getClass()) {
+			return false;
+		}
+		ConfigurationPropertyName other = (ConfigurationPropertyName) obj;
+		if (getNumberOfElements() != other.getNumberOfElements()) {
+			return false;
+		}
+		for (int i = 0; i < this.elements.length; i++) {
+			if (!elementEquals(this.elements[i], other.elements[i])) {
+				return false;
+			}
+		}
+		return true;
 	}
 
-	private String toString(CharSequence[] elements) {
-		StringBuilder result = new StringBuilder();
-		for (CharSequence element : elements) {
-			boolean indexed = isIndexed(element);
-			if (result.length() > 0 && !indexed) {
-				result.append(".");
+	private boolean elementEquals(CharSequence e1, CharSequence e2) {
+		int l1 = e1.length();
+		int l2 = e2.length();
+		boolean indexed1 = isIndexed(e1);
+		int offset1 = indexed1 ? 1 : 0;
+		boolean indexed2 = isIndexed(e2);
+		int offset2 = indexed2 ? 1 : 0;
+		int i1 = offset1;
+		int i2 = offset2;
+		while (i1 < l1 - offset1) {
+			if (i2 >= l2 - offset2) {
+				return false;
 			}
-			if (indexed) {
-				result.append(element);
+			char ch1 = indexed1 ? e1.charAt(i1) : Character.toLowerCase(e1.charAt(i1));
+			char ch2 = indexed2 ? e2.charAt(i2) : Character.toLowerCase(e2.charAt(i2));
+			if (!indexed1 && (ch1 == '-' || ch1 == '_')) {
+				i1++;
+			}
+			else if (!indexed2 && (ch2 == '-' || ch2 == '_')) {
+				i2++;
+			}
+			else if (ch1 != ch2) {
+				return false;
 			}
 			else {
-				for (int i = 0; i < element.length(); i++) {
-					char ch = Character.toLowerCase(element.charAt(i));
-					result.append(ch == '_' ? "" : ch);
-				}
+				i1++;
+				i2++;
 			}
 		}
-		return result.toString();
+		while (i2 < l2 - offset2) {
+			char ch = e2.charAt(i2++);
+			if (indexed2 || (ch != '-' && ch != '_')) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	@Override
@@ -341,77 +372,47 @@ public final class ConfigurationPropertyName
 	private int getElementHashCode(CharSequence element) {
 		int hash = 0;
 		boolean indexed = isIndexed(element);
-		int offset = (indexed ? 1 : 0);
+		int offset = indexed ? 1 : 0;
 		for (int i = 0 + offset; i < element.length() - offset; i++) {
 			char ch = (indexed ? element.charAt(i)
 					: Character.toLowerCase(element.charAt(i)));
-			hash = (ch == '-' || ch == '_' ? hash : 31 * hash + Character.hashCode(ch));
+			hash = (ch == '-' || ch == '_') ? hash : 31 * hash + Character.hashCode(ch);
 		}
 		return hash;
 	}
 
 	@Override
-	public boolean equals(Object obj) {
-		if (obj == this) {
-			return true;
+	public String toString() {
+		if (this.string == null) {
+			this.string = toString(this.elements);
 		}
-		if (obj == null || !obj.getClass().equals(getClass())) {
-			return false;
-		}
-		ConfigurationPropertyName other = (ConfigurationPropertyName) obj;
-		if (getNumberOfElements() != other.getNumberOfElements()) {
-			return false;
-		}
-		for (int i = 0; i < this.elements.length; i++) {
-			if (!elementEquals(this.elements[i], other.elements[i])) {
-				return false;
-			}
-		}
-		return true;
+		return this.string;
 	}
 
-	private boolean elementEquals(CharSequence e1, CharSequence e2) {
-		int l1 = e1.length();
-		int l2 = e2.length();
-		boolean indexed1 = isIndexed(e1);
-		int offset1 = (indexed1 ? 1 : 0);
-		boolean indexed2 = isIndexed(e2);
-		int offset2 = (indexed2 ? 1 : 0);
-		int i1 = offset1;
-		int i2 = offset2;
-		while (i1 < l1 - offset1) {
-			if (i2 >= l2 - offset2) {
-				return false;
+	private String toString(CharSequence[] elements) {
+		StringBuilder result = new StringBuilder();
+		for (CharSequence element : elements) {
+			boolean indexed = isIndexed(element);
+			if (result.length() > 0 && !indexed) {
+				result.append('.');
 			}
-			char ch1 = (indexed1 ? e1.charAt(i1) : Character.toLowerCase(e1.charAt(i1)));
-			char ch2 = (indexed2 ? e2.charAt(i2) : Character.toLowerCase(e2.charAt(i2)));
-			if (ch1 == '-' || ch1 == '_') {
-				i1++;
-			}
-			else if (ch2 == '-' || ch2 == '_') {
-				i2++;
-			}
-			else if (ch1 != ch2) {
-				return false;
+			if (indexed) {
+				result.append(element);
 			}
 			else {
-				i1++;
-				i2++;
+				for (int i = 0; i < element.length(); i++) {
+					char ch = Character.toLowerCase(element.charAt(i));
+					if (ch != '_') {
+						result.append(ch);
+					}
+				}
 			}
 		}
-		while (i2 < l2 - offset2) {
-			char ch = e2.charAt(i2++);
-			if (ch != '-' && ch != '_') {
-				return false;
-			}
-		}
-		return true;
+		return result.toString();
 	}
 
 	private static boolean isIndexed(CharSequence element) {
-		int length = element.length();
-		return length > 2 && element.charAt(0) == '['
-				&& element.charAt(length - 1) == ']';
+		return element.charAt(0) == '[' && element.charAt(element.length() - 1) == ']';
 	}
 
 	/**
@@ -461,8 +462,7 @@ public final class ConfigurationPropertyName
 				elements.add(elementValue);
 			}
 		});
-		return new ConfigurationPropertyName(
-				elements.toArray(new CharSequence[elements.size()]));
+		return new ConfigurationPropertyName(elements.toArray(new CharSequence[0]));
 	}
 
 	/**
@@ -496,7 +496,7 @@ public final class ConfigurationPropertyName
 		if (name.length() == 0) {
 			return EMPTY;
 		}
-		List<CharSequence> elements = new ArrayList<>(10);
+		List<CharSequence> elements = new ArrayList<>();
 		process(name, separator, (elementValue, start, end, indexed) -> {
 			elementValue = elementValueProcessor.apply(elementValue);
 			if (!isIndexed(elementValue)) {
@@ -509,8 +509,7 @@ public final class ConfigurationPropertyName
 				elements.add(elementValue);
 			}
 		});
-		return new ConfigurationPropertyName(
-				elements.toArray(new CharSequence[elements.size()]));
+		return new ConfigurationPropertyName(elements.toArray(new CharSequence[0]));
 	}
 
 	private static void process(CharSequence name, char separator,
@@ -656,10 +655,16 @@ public final class ConfigurationPropertyName
 		}
 
 		public static boolean isValidElement(CharSequence elementValue) {
-			return getInvalidChars(elementValue).isEmpty();
+			for (int i = 0; i < elementValue.length(); i++) {
+				char ch = elementValue.charAt(i);
+				if (!isValidChar(ch, i)) {
+					return false;
+				}
+			}
+			return true;
 		}
 
-		private static List<Character> getInvalidChars(CharSequence elementValue) {
+		public static List<Character> getInvalidChars(CharSequence elementValue) {
 			List<Character> chars = new ArrayList<>();
 			for (int i = 0; i < elementValue.length(); i++) {
 				char ch = elementValue.charAt(i);
@@ -671,12 +676,15 @@ public final class ConfigurationPropertyName
 		}
 
 		public static boolean isValidChar(char ch, int index) {
-			boolean isAlpha = ch >= 'a' && ch <= 'z';
-			boolean isNumeric = ch >= '0' && ch <= '9';
-			if (index == 0) {
-				return isAlpha;
-			}
-			return isAlpha || isNumeric || ch == '-';
+			return isAlpha(ch) || isNumeric(ch) || (index != 0 && ch == '-');
+		}
+
+		private static boolean isAlpha(char ch) {
+			return ch >= 'a' && ch <= 'z';
+		}
+
+		private static boolean isNumeric(char ch) {
+			return ch >= '0' && ch <= '9';
 		}
 
 	}

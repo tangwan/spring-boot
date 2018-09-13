@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -95,15 +95,13 @@ public class MetadataStore {
 	}
 
 	private FileObject getMetadataResource() throws IOException {
-		FileObject resource = this.environment.getFiler()
-				.getResource(StandardLocation.CLASS_OUTPUT, "", METADATA_PATH);
-		return resource;
+		return this.environment.getFiler().getResource(StandardLocation.CLASS_OUTPUT, "",
+				METADATA_PATH);
 	}
 
 	private FileObject createMetadataResource() throws IOException {
-		FileObject resource = this.environment.getFiler()
-				.createResource(StandardLocation.CLASS_OUTPUT, "", METADATA_PATH);
-		return resource;
+		return this.environment.getFiler().createResource(StandardLocation.CLASS_OUTPUT,
+				"", METADATA_PATH);
 	}
 
 	private InputStream getAdditionalMetadataStream() throws IOException {
@@ -118,6 +116,16 @@ public class MetadataStore {
 	File locateAdditionalMetadataFile(File standardLocation) throws IOException {
 		if (standardLocation.exists()) {
 			return standardLocation;
+		}
+		String locations = this.environment.getOptions().get(
+				ConfigurationMetadataAnnotationProcessor.ADDITIONAL_METADATA_LOCATIONS_OPTION);
+		if (locations != null) {
+			for (String location : locations.split(",")) {
+				File candidate = new File(location, ADDITIONAL_METADATA_PATH);
+				if (candidate.isFile()) {
+					return candidate;
+				}
+			}
 		}
 		return new File(locateGradleResourcesFolder(standardLocation),
 				ADDITIONAL_METADATA_PATH);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,18 +45,30 @@ public class ImportAutoConfigurationTests {
 	}
 
 	@Test
-	public void classesAsAnAlias() throws Exception {
+	public void classesAsAnAlias() {
 		assertThat(getImportedConfigBeans(AnotherConfigUsingClasses.class))
 				.containsExactly("ConfigA", "ConfigB", "ConfigC", "ConfigD");
 	}
 
 	@Test
-	public void excluding() throws Exception {
+	public void excluding() {
 		assertThat(getImportedConfigBeans(ExcludingConfig.class))
 				.containsExactly("ConfigA", "ConfigB", "ConfigD");
 	}
 
-	private List<String> getImportedConfigBeans(Class<?> config) {
+	@Test
+	public void excludeAppliedGlobally() {
+		assertThat(getImportedConfigBeans(ExcludeDConfig.class, ImportADConfig.class))
+				.containsExactly("ConfigA");
+	}
+
+	@Test
+	public void excludeWithRedundancy() {
+		assertThat(getImportedConfigBeans(ExcludeADConfig.class, ExcludeDConfig.class,
+				ImportADConfig.class)).isEmpty();
+	}
+
+	private List<String> getImportedConfigBeans(Class<?>... config) {
 		AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(
 				config);
 		String shortName = ClassUtils.getShortName(ImportAutoConfigurationTests.class);
@@ -94,6 +106,21 @@ public class ImportAutoConfigurationTests {
 			ConfigB.class }, exclude = ConfigC.class)
 	@MetaImportAutoConfiguration
 	static class ExcludingConfig {
+
+	}
+
+	@ImportAutoConfiguration(classes = { ConfigA.class, ConfigD.class })
+	static class ImportADConfig {
+
+	}
+
+	@ImportAutoConfiguration(exclude = { ConfigA.class, ConfigD.class })
+	static class ExcludeADConfig {
+
+	}
+
+	@ImportAutoConfiguration(exclude = ConfigD.class)
+	static class ExcludeDConfig {
 
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 
 package org.springframework.boot.autoconfigure.mongo;
 
-import java.net.UnknownHostException;
 import java.util.List;
 
 import com.mongodb.MongoClient;
@@ -114,7 +113,7 @@ public class MongoPropertiesTests {
 	}
 
 	@Test
-	public void uriOverridesHostAndPort() throws UnknownHostException {
+	public void uriOverridesHostAndPort() {
 		MongoProperties properties = new MongoProperties();
 		properties.setHost("localhost");
 		properties.setPort(27017);
@@ -127,7 +126,7 @@ public class MongoPropertiesTests {
 	}
 
 	@Test
-	public void onlyHostAndPortSetShouldUseThat() throws UnknownHostException {
+	public void onlyHostAndPortSetShouldUseThat() {
 		MongoProperties properties = new MongoProperties();
 		properties.setHost("localhost");
 		properties.setPort(27017);
@@ -139,7 +138,7 @@ public class MongoPropertiesTests {
 	}
 
 	@Test
-	public void onlyUriSetShouldUseThat() throws UnknownHostException {
+	public void onlyUriSetShouldUseThat() {
 		MongoProperties properties = new MongoProperties();
 		properties.setUri("mongodb://mongo1.example.com:12345");
 		MongoClient client = new MongoClientFactory(properties, null)
@@ -150,7 +149,7 @@ public class MongoPropertiesTests {
 	}
 
 	@Test
-	public void noCustomAddressAndNoUriUsesDefaultUri() throws UnknownHostException {
+	public void noCustomAddressAndNoUriUsesDefaultUri() {
 		MongoProperties properties = new MongoProperties();
 		MongoClient client = new MongoClientFactory(properties, null)
 				.createMongoClient(null);
@@ -160,11 +159,11 @@ public class MongoPropertiesTests {
 	}
 
 	private List<ServerAddress> extractServerAddresses(MongoClient client) {
-		Cluster cluster = (Cluster) ReflectionTestUtils.getField(client, "cluster");
+		Cluster cluster = (Cluster) ReflectionTestUtils
+				.getField(ReflectionTestUtils.getField(client, "delegate"), "cluster");
 		ClusterSettings clusterSettings = (ClusterSettings) ReflectionTestUtils
 				.getField(cluster, "settings");
-		List<ServerAddress> allAddresses = clusterSettings.getHosts();
-		return allAddresses;
+		return clusterSettings.getHosts();
 	}
 
 	private void assertServerAddress(ServerAddress serverAddress, String expectedHost,

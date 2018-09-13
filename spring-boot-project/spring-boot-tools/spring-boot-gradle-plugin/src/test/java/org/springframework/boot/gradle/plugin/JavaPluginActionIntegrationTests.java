@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,9 @@
 package org.springframework.boot.gradle.plugin;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.jar.JarOutputStream;
 
 import org.gradle.testkit.runner.BuildResult;
 import org.gradle.testkit.runner.TaskOutcome;
@@ -102,6 +105,14 @@ public class JavaPluginActionIntegrationTests {
 	}
 
 	@Test
+	public void errorMessageIsHelpfulWhenMainClassCannotBeResolved() {
+		BuildResult result = this.gradleBuild.buildAndFail("build", "-PapplyJavaPlugin");
+		assertThat(result.task(":bootJar").getOutcome()).isEqualTo(TaskOutcome.FAILED);
+		assertThat(result.getOutput()).contains(
+				"Main class name has not been configured and it could not be resolved");
+	}
+
+	@Test
 	public void jarAndBootJarCanBothBeBuilt() {
 		BuildResult result = this.gradleBuild.build("assemble");
 		assertThat(result.task(":bootJar").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
@@ -111,6 +122,42 @@ public class JavaPluginActionIntegrationTests {
 				new File(buildLibs, this.gradleBuild.getProjectDir().getName() + ".jar"),
 				new File(buildLibs,
 						this.gradleBuild.getProjectDir().getName() + "-boot.jar"));
+	}
+
+	@Test
+	public void additionalMetadataLocationsConfiguredWhenProcessorIsPresent()
+			throws IOException {
+		createMinimalMainSource();
+		File libs = new File(this.gradleBuild.getProjectDir(), "libs");
+		libs.mkdirs();
+		new JarOutputStream(new FileOutputStream(
+				new File(libs, "spring-boot-configuration-processor-1.2.3.jar"))).close();
+		BuildResult result = this.gradleBuild.build("compileJava");
+		assertThat(result.task(":compileJava").getOutcome())
+				.isEqualTo(TaskOutcome.SUCCESS);
+		assertThat(result.getOutput()).contains(
+				"compileJava compiler args: [-parameters, -Aorg.springframework.boot."
+						+ "configurationprocessor.additionalMetadataLocations="
+						+ new File(this.gradleBuild.getProjectDir(), "src/main/resources")
+								.getCanonicalPath());
+	}
+
+	@Test
+	public void additionalMetadataLocationsNotConfiguredWhenProcessorIsAbsent()
+			throws IOException {
+		createMinimalMainSource();
+		BuildResult result = this.gradleBuild.build("compileJava");
+		assertThat(result.task(":compileJava").getOutcome())
+				.isEqualTo(TaskOutcome.SUCCESS);
+		assertThat(result.getOutput())
+				.contains("compileJava compiler args: [-parameters]");
+	}
+
+	private void createMinimalMainSource() throws IOException {
+		File examplePackage = new File(this.gradleBuild.getProjectDir(),
+				"src/main/java/com/example");
+		examplePackage.mkdirs();
+		new File(examplePackage, "Application.java").createNewFile();
 	}
 
 }

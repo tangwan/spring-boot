@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@ import org.jooq.DSLContext;
 import org.jooq.ExecuteListenerProvider;
 import org.jooq.RecordListenerProvider;
 import org.jooq.RecordMapperProvider;
+import org.jooq.RecordUnmapperProvider;
+import org.jooq.TransactionListenerProvider;
 import org.jooq.TransactionProvider;
 import org.jooq.VisitListenerProvider;
 import org.jooq.conf.Settings;
@@ -38,6 +40,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
+import org.springframework.boot.autoconfigure.transaction.TransactionAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -49,16 +52,18 @@ import org.springframework.transaction.PlatformTransactionManager;
  *
  * @author Andreas Ahlenstorf
  * @author Michael Simons
+ * @author Dmytro Nosan
  * @since 1.3.0
  */
 @Configuration
 @ConditionalOnClass(DSLContext.class)
 @ConditionalOnBean(DataSource.class)
-@AutoConfigureAfter(DataSourceAutoConfiguration.class)
+@AutoConfigureAfter({ DataSourceAutoConfiguration.class,
+		TransactionAutoConfiguration.class })
 public class JooqAutoConfiguration {
 
 	@Bean
-	@ConditionalOnMissingBean(DataSourceConnectionProvider.class)
+	@ConditionalOnMissingBean
 	public DataSourceConnectionProvider dataSourceConnectionProvider(
 			DataSource dataSource) {
 		return new DataSourceConnectionProvider(
@@ -92,6 +97,8 @@ public class JooqAutoConfiguration {
 
 		private final RecordMapperProvider recordMapperProvider;
 
+		private final RecordUnmapperProvider recordUnmapperProvider;
+
 		private final Settings settings;
 
 		private final RecordListenerProvider[] recordListenerProviders;
@@ -100,23 +107,30 @@ public class JooqAutoConfiguration {
 
 		private final VisitListenerProvider[] visitListenerProviders;
 
+		private final TransactionListenerProvider[] transactionListenerProviders;
+
 		public DslContextConfiguration(JooqProperties properties,
 				ConnectionProvider connectionProvider, DataSource dataSource,
 				ObjectProvider<TransactionProvider> transactionProvider,
 				ObjectProvider<RecordMapperProvider> recordMapperProvider,
+				ObjectProvider<RecordUnmapperProvider> recordUnmapperProvider,
 				ObjectProvider<Settings> settings,
 				ObjectProvider<RecordListenerProvider[]> recordListenerProviders,
 				ExecuteListenerProvider[] executeListenerProviders,
-				ObjectProvider<VisitListenerProvider[]> visitListenerProviders) {
+				ObjectProvider<VisitListenerProvider[]> visitListenerProviders,
+				ObjectProvider<TransactionListenerProvider[]> transactionListenerProviders) {
 			this.properties = properties;
 			this.connection = connectionProvider;
 			this.dataSource = dataSource;
 			this.transactionProvider = transactionProvider.getIfAvailable();
 			this.recordMapperProvider = recordMapperProvider.getIfAvailable();
+			this.recordUnmapperProvider = recordUnmapperProvider.getIfAvailable();
 			this.settings = settings.getIfAvailable();
 			this.recordListenerProviders = recordListenerProviders.getIfAvailable();
 			this.executeListenerProviders = executeListenerProviders;
 			this.visitListenerProviders = visitListenerProviders.getIfAvailable();
+			this.transactionListenerProviders = transactionListenerProviders
+					.getIfAvailable();
 		}
 
 		@Bean
@@ -136,12 +150,17 @@ public class JooqAutoConfiguration {
 			if (this.recordMapperProvider != null) {
 				configuration.set(this.recordMapperProvider);
 			}
+			if (this.recordUnmapperProvider != null) {
+				configuration.set(this.recordUnmapperProvider);
+			}
 			if (this.settings != null) {
 				configuration.set(this.settings);
 			}
 			configuration.set(this.recordListenerProviders);
 			configuration.set(this.executeListenerProviders);
 			configuration.set(this.visitListenerProviders);
+			configuration
+					.setTransactionListenerProvider(this.transactionListenerProviders);
 			return configuration;
 		}
 

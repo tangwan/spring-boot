@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,13 @@
 
 package org.springframework.boot.autoconfigure.jms.activemq;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.boot.autoconfigure.jms.JmsPoolConnectionFactoryProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.NestedConfigurationProperty;
 
 /**
  * Configuration properties for ActiveMQ.
@@ -38,8 +41,8 @@ public class ActiveMQProperties {
 	private String brokerUrl;
 
 	/**
-	 * Specify if the default broker URL should be in memory. Ignored if an explicit
-	 * broker has been specified.
+	 * Whether the default broker URL should be in memory. Ignored if an explicit broker
+	 * has been specified.
 	 */
 	private boolean inMemory = true;
 
@@ -54,26 +57,25 @@ public class ActiveMQProperties {
 	private String password;
 
 	/**
-	 * Time to wait, in milliseconds, before considering a close complete.
+	 * Time to wait before considering a close complete.
 	 */
-	private int closeTimeout = 15000;
+	private Duration closeTimeout = Duration.ofSeconds(15);
 
 	/**
-	 * Do not stop message delivery before re-delivering messages from a rolled back
-	 * transaction. This implies that message order will not be preserved when this is
-	 * enabled.
+	 * Whether to stop message delivery before re-delivering messages from a rolled back
+	 * transaction. This implies that message order is not preserved when this is enabled.
 	 */
 	private boolean nonBlockingRedelivery = false;
 
 	/**
-	 * Time to wait, in milliseconds, on Message sends for a response. Set it to 0 to
-	 * indicate to wait forever.
+	 * Time to wait on message sends for a response. Set it to 0 to wait forever.
 	 */
-	private int sendTimeout = 0;
+	private Duration sendTimeout = Duration.ofMillis(0);
 
-	private Pool pool = new Pool();
+	@NestedConfigurationProperty
+	private final JmsPoolConnectionFactoryProperties pool = new JmsPoolConnectionFactoryProperties();
 
-	private Packages packages = new Packages();
+	private final Packages packages = new Packages();
 
 	public String getBrokerUrl() {
 		return this.brokerUrl;
@@ -107,11 +109,11 @@ public class ActiveMQProperties {
 		this.password = password;
 	}
 
-	public int getCloseTimeout() {
+	public Duration getCloseTimeout() {
 		return this.closeTimeout;
 	}
 
-	public void setCloseTimeout(int closeTimeout) {
+	public void setCloseTimeout(Duration closeTimeout) {
 		this.closeTimeout = closeTimeout;
 	}
 
@@ -123,183 +125,26 @@ public class ActiveMQProperties {
 		this.nonBlockingRedelivery = nonBlockingRedelivery;
 	}
 
-	public int getSendTimeout() {
+	public Duration getSendTimeout() {
 		return this.sendTimeout;
 	}
 
-	public void setSendTimeout(int sendTimeout) {
+	public void setSendTimeout(Duration sendTimeout) {
 		this.sendTimeout = sendTimeout;
 	}
 
-	public Pool getPool() {
+	public JmsPoolConnectionFactoryProperties getPool() {
 		return this.pool;
-	}
-
-	public void setPool(Pool pool) {
-		this.pool = pool;
 	}
 
 	public Packages getPackages() {
 		return this.packages;
 	}
 
-	public static class Pool {
-
-		/**
-		 * Whether a PooledConnectionFactory should be created instead of a regular
-		 * ConnectionFactory.
-		 */
-		private boolean enabled;
-
-		/**
-		 * Block when a connection is requested and the pool is full. Set it to false to
-		 * throw a "JMSException" instead.
-		 */
-		private boolean blockIfFull = true;
-
-		/**
-		 * Blocking period, in milliseconds, before throwing an exception if the pool is
-		 * still full.
-		 */
-		private long blockIfFullTimeout = -1;
-
-		/**
-		 * Create a connection on startup. Can be used to warm-up the pool on startup.
-		 */
-		private boolean createConnectionOnStartup = true;
-
-		/**
-		 * Connection expiration timeout in milliseconds.
-		 */
-		private long expiryTimeout = 0;
-
-		/**
-		 * Connection idle timeout in milliseconds.
-		 */
-		private int idleTimeout = 30000;
-
-		/**
-		 * Maximum number of pooled connections.
-		 */
-		private int maxConnections = 1;
-
-		/**
-		 * Maximum number of active sessions per connection.
-		 */
-		private int maximumActiveSessionPerConnection = 500;
-
-		/**
-		 * Reset the connection when a "JMSException" occurs.
-		 */
-		private boolean reconnectOnException = true;
-
-		/**
-		 * Time to sleep, in milliseconds, between runs of the idle connection eviction
-		 * thread. When negative, no idle connection eviction thread runs.
-		 */
-		private long timeBetweenExpirationCheck = -1;
-
-		/**
-		 * Use only one anonymous "MessageProducer" instance. Set it to false to create
-		 * one "MessageProducer" every time one is required.
-		 */
-		private boolean useAnonymousProducers = true;
-
-		public boolean isEnabled() {
-			return this.enabled;
-		}
-
-		public void setEnabled(boolean enabled) {
-			this.enabled = enabled;
-		}
-
-		public boolean isBlockIfFull() {
-			return this.blockIfFull;
-		}
-
-		public void setBlockIfFull(boolean blockIfFull) {
-			this.blockIfFull = blockIfFull;
-		}
-
-		public long getBlockIfFullTimeout() {
-			return this.blockIfFullTimeout;
-		}
-
-		public void setBlockIfFullTimeout(long blockIfFullTimeout) {
-			this.blockIfFullTimeout = blockIfFullTimeout;
-		}
-
-		public boolean isCreateConnectionOnStartup() {
-			return this.createConnectionOnStartup;
-		}
-
-		public void setCreateConnectionOnStartup(boolean createConnectionOnStartup) {
-			this.createConnectionOnStartup = createConnectionOnStartup;
-		}
-
-		public long getExpiryTimeout() {
-			return this.expiryTimeout;
-		}
-
-		public void setExpiryTimeout(long expiryTimeout) {
-			this.expiryTimeout = expiryTimeout;
-		}
-
-		public int getIdleTimeout() {
-			return this.idleTimeout;
-		}
-
-		public void setIdleTimeout(int idleTimeout) {
-			this.idleTimeout = idleTimeout;
-		}
-
-		public int getMaxConnections() {
-			return this.maxConnections;
-		}
-
-		public void setMaxConnections(int maxConnections) {
-			this.maxConnections = maxConnections;
-		}
-
-		public int getMaximumActiveSessionPerConnection() {
-			return this.maximumActiveSessionPerConnection;
-		}
-
-		public void setMaximumActiveSessionPerConnection(
-				int maximumActiveSessionPerConnection) {
-			this.maximumActiveSessionPerConnection = maximumActiveSessionPerConnection;
-		}
-
-		public boolean isReconnectOnException() {
-			return this.reconnectOnException;
-		}
-
-		public void setReconnectOnException(boolean reconnectOnException) {
-			this.reconnectOnException = reconnectOnException;
-		}
-
-		public long getTimeBetweenExpirationCheck() {
-			return this.timeBetweenExpirationCheck;
-		}
-
-		public void setTimeBetweenExpirationCheck(long timeBetweenExpirationCheck) {
-			this.timeBetweenExpirationCheck = timeBetweenExpirationCheck;
-		}
-
-		public boolean isUseAnonymousProducers() {
-			return this.useAnonymousProducers;
-		}
-
-		public void setUseAnonymousProducers(boolean useAnonymousProducers) {
-			this.useAnonymousProducers = useAnonymousProducers;
-		}
-
-	}
-
 	public static class Packages {
 
 		/**
-		 * Trust all packages.
+		 * Whether to trust all packages.
 		 */
 		private Boolean trustAll;
 

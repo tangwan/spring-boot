@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ import java.net.URL;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -47,6 +46,7 @@ import org.springframework.boot.devtools.restart.FailureHandler.Outcome;
 import org.springframework.boot.devtools.restart.classloader.ClassLoaderFiles;
 import org.springframework.boot.devtools.restart.classloader.RestartClassLoader;
 import org.springframework.boot.logging.DeferredLog;
+import org.springframework.boot.system.JavaVersion;
 import org.springframework.cglib.core.ClassNameReader;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.support.GenericApplicationContext;
@@ -134,7 +134,9 @@ public class Restarter {
 		Assert.notNull(thread, "Thread must not be null");
 		Assert.notNull(args, "Args must not be null");
 		Assert.notNull(initializer, "Initializer must not be null");
-		this.logger.debug("Creating new Restarter for thread " + thread);
+		if (this.logger.isDebugEnabled()) {
+			this.logger.debug("Creating new Restarter for thread " + thread);
+		}
 		SilentExitExceptionHandler.setup(thread);
 		this.forceReferenceCleanup = forceReferenceCleanup;
 		this.initialUrls = initializer.getInitialUrls(thread);
@@ -240,7 +242,7 @@ public class Restarter {
 	 * Restart the running application.
 	 * @param failureHandler a failure handler to deal with application that doesn't start
 	 */
-	public void restart(final FailureHandler failureHandler) {
+	public void restart(FailureHandler failureHandler) {
 		if (!this.enabled) {
 			this.logger.debug("Application restart is disabled");
 			return;
@@ -273,11 +275,10 @@ public class Restarter {
 
 	private Throwable doStart() throws Exception {
 		Assert.notNull(this.mainClassName, "Unable to find the main class to restart");
-		ClassLoader parent = this.applicationClassLoader;
-		URL[] urls = this.urls.toArray(new URL[this.urls.size()]);
+		URL[] urls = this.urls.toArray(new URL[0]);
 		ClassLoaderFiles updatedFiles = new ClassLoaderFiles(this.classLoaderFiles);
-		ClassLoader classLoader = new RestartClassLoader(parent, urls, updatedFiles,
-				this.logger);
+		ClassLoader classLoader = new RestartClassLoader(this.applicationClassLoader,
+				urls, updatedFiles, this.logger);
 		if (this.logger.isDebugEnabled()) {
 			this.logger.debug("Starting application " + this.mainClassName + " with URLs "
 					+ Arrays.asList(urls));
@@ -331,16 +332,29 @@ public class Restarter {
 	private void cleanupKnownCaches() throws Exception {
 		// Whilst not strictly necessary it helps to cleanup soft reference caches
 		// early rather than waiting for memory limits to be reached
-		clear(ResolvableType.class, "cache");
-		clear("org.springframework.core.SerializableTypeWrapper", "cache");
+		ResolvableType.clearCache();
+		cleanCachedIntrospectionResultsCache();
+		ReflectionUtils.clearCache();
+		clearAnnotationUtilsCache();
+		if (!JavaVersion.getJavaVersion().isEqualOrNewerThan(JavaVersion.NINE)) {
+			clear("com.sun.naming.internal.ResourceManager", "propertiesCache");
+		}
+	}
+
+	private void cleanCachedIntrospectionResultsCache() throws Exception {
 		clear(CachedIntrospectionResults.class, "acceptedClassLoaders");
 		clear(CachedIntrospectionResults.class, "strongClassCache");
 		clear(CachedIntrospectionResults.class, "softClassCache");
-		clear(ReflectionUtils.class, "declaredFieldsCache");
-		clear(ReflectionUtils.class, "declaredMethodsCache");
-		clear(AnnotationUtils.class, "findAnnotationCache");
-		clear(AnnotationUtils.class, "annotatedInterfaceCache");
-		clear("com.sun.naming.internal.ResourceManager", "propertiesCache");
+	}
+
+	private void clearAnnotationUtilsCache() throws Exception {
+		try {
+			AnnotationUtils.clearCache();
+		}
+		catch (Throwable ex) {
+			clear(AnnotationUtils.class, "findAnnotationCache");
+			clear(AnnotationUtils.class, "annotatedInterfaceCache");
+		}
 	}
 
 	private void clear(String className, String fieldName) {
@@ -348,28 +362,35 @@ public class Restarter {
 			clear(Class.forName(className), fieldName);
 		}
 		catch (Exception ex) {
-			this.logger.debug("Unable to clear field " + className + " " + fieldName, ex);
+			if (this.logger.isDebugEnabled()) {
+				this.logger.debug("Unable to clear field " + className + " " + fieldName,
+						ex);
+			}
 		}
 	}
 
 	private void clear(Class<?> type, String fieldName) throws Exception {
-		Field field = type.getDeclaredField(fieldName);
-		field.setAccessible(true);
-		Object instance = field.get(null);
-		if (instance instanceof Set) {
-			((Set<?>) instance).clear();
-		}
-		if (instance instanceof Map) {
-			Map<?, ?> map = ((Map<?, ?>) instance);
-			for (Iterator<?> iterator = map.keySet().iterator(); iterator.hasNext();) {
-				Object value = iterator.next();
-				if (value instanceof Class && ((Class<?>) value)
-						.getClassLoader() instanceof RestartClassLoader) {
-					iterator.remove();
-				}
-
+		try {
+			Field field = type.getDeclaredField(fieldName);
+			field.setAccessible(true);
+			Object instance = field.get(null);
+			if (instance instanceof Set) {
+				((Set<?>) instance).clear();
+			}
+			if (instance instanceof Map) {
+				((Map<?, ?>) instance).keySet().removeIf(this::isFromRestartClassLoader);
 			}
 		}
+		catch (Exception ex) {
+			if (this.logger.isDebugEnabled()) {
+				this.logger.debug("Unable to clear field " + type + " " + fieldName, ex);
+			}
+		}
+	}
+
+	private boolean isFromRestartClassLoader(Object object) {
+		return (object instanceof Class
+				&& ((Class<?>) object).getClassLoader() instanceof RestartClassLoader);
 	}
 
 	/**
@@ -382,7 +403,7 @@ public class Restarter {
 				memory.add(new long[102400]);
 			}
 		}
-		catch (final OutOfMemoryError ex) {
+		catch (OutOfMemoryError ex) {
 			// Expected
 		}
 	}
@@ -439,8 +460,7 @@ public class Restarter {
 		}
 	}
 
-	public Object getOrAddAttribute(final String name,
-			final ObjectFactory<?> objectFactory) {
+	public Object getOrAddAttribute(String name, final ObjectFactory<?> objectFactory) {
 		synchronized (this.attributes) {
 			if (!this.attributes.containsKey(name)) {
 				this.attributes.put(name, objectFactory.getObject());
@@ -505,7 +525,7 @@ public class Restarter {
 
 	/**
 	 * Initialize restart support. See
-	 * {@link #initialize(String[], boolean, RestartInitializer)} for details.
+	 * {@link #initialize(String[], boolean, RestartInitializer, boolean)} for details.
 	 * @param args main application arguments
 	 * @param forceReferenceCleanup if forcing of soft/weak reference should happen on
 	 * @param initializer the restart initializer
@@ -559,7 +579,7 @@ public class Restarter {
 	 * Set the restarter instance (useful for testing).
 	 * @param instance the instance to set
 	 */
-	final static void setInstance(Restarter instance) {
+	static void setInstance(Restarter instance) {
 		synchronized (INSTANCE_MONITOR) {
 			Restarter.instance = instance;
 		}
@@ -630,7 +650,7 @@ public class Restarter {
 	private class LeakSafeThreadFactory implements ThreadFactory {
 
 		@Override
-		public Thread newThread(final Runnable runnable) {
+		public Thread newThread(Runnable runnable) {
 			return getLeakSafeThread().callAndWait(() -> {
 				Thread thread = new Thread(runnable);
 				thread.setContextClassLoader(Restarter.this.applicationClassLoader);

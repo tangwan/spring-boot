@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,15 @@
 
 package org.springframework.boot.autoconfigure.orm.jpa;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 import javax.persistence.EntityManagerFactory;
 import javax.sql.DataSource;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactory;
@@ -51,6 +55,8 @@ import org.springframework.orm.jpa.support.OpenEntityManagerInViewInterceptor;
 import org.springframework.orm.jpa.vendor.AbstractJpaVendorAdapter;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.jta.JtaTransactionManager;
+import org.springframework.util.ObjectUtils;
+import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -89,7 +95,7 @@ public abstract class JpaBaseConfiguration implements BeanFactoryAware {
 	}
 
 	@Bean
-	@ConditionalOnMissingBean(PlatformTransactionManager.class)
+	@ConditionalOnMissingBean
 	public PlatformTransactionManager transactionManager() {
 		JpaTransactionManager transactionManager = new JpaTransactionManager();
 		if (this.transactionManagerCustomizers != null) {
@@ -113,11 +119,15 @@ public abstract class JpaBaseConfiguration implements BeanFactoryAware {
 	@ConditionalOnMissingBean
 	public EntityManagerFactoryBuilder entityManagerFactoryBuilder(
 			JpaVendorAdapter jpaVendorAdapter,
-			ObjectProvider<PersistenceUnitManager> persistenceUnitManager) {
+			ObjectProvider<PersistenceUnitManager> persistenceUnitManager,
+			ObjectProvider<List<EntityManagerFactoryBuilderCustomizer>> customizers) {
 		EntityManagerFactoryBuilder builder = new EntityManagerFactoryBuilder(
 				jpaVendorAdapter, this.properties.getProperties(),
 				persistenceUnitManager.getIfAvailable());
-		builder.setCallback(getVendorCallback());
+		for (EntityManagerFactoryBuilderCustomizer customizer : customizers
+				.getIfAvailable(Collections::emptyList)) {
+			customizer.customize(builder);
+		}
 		return builder;
 	}
 
@@ -146,22 +156,19 @@ public abstract class JpaBaseConfiguration implements BeanFactoryAware {
 	protected void customizeVendorProperties(Map<String, Object> vendorProperties) {
 	}
 
-	protected EntityManagerFactoryBuilder.EntityManagerFactoryBeanCallback getVendorCallback() {
-		return null;
-	}
-
 	protected String[] getPackagesToScan() {
 		List<String> packages = EntityScanPackages.get(this.beanFactory)
 				.getPackageNames();
 		if (packages.isEmpty() && AutoConfigurationPackages.has(this.beanFactory)) {
 			packages = AutoConfigurationPackages.get(this.beanFactory);
 		}
-		return packages.toArray(new String[packages.size()]);
+		return StringUtils.toStringArray(packages);
 	}
 
 	private String[] getMappingResources() {
 		List<String> mappingResources = this.properties.getMappingResources();
-		return mappingResources.toArray(new String[mappingResources.size()]);
+		return (!ObjectUtils.isEmpty(mappingResources)
+				? StringUtils.toStringArray(mappingResources) : null);
 	}
 
 	/**
@@ -214,8 +221,23 @@ public abstract class JpaBaseConfiguration implements BeanFactoryAware {
 		@Configuration
 		protected static class JpaWebMvcConfiguration implements WebMvcConfigurer {
 
+			private static final Log logger = LogFactory
+					.getLog(JpaWebMvcConfiguration.class);
+
+			private final JpaProperties jpaProperties;
+
+			protected JpaWebMvcConfiguration(JpaProperties jpaProperties) {
+				this.jpaProperties = jpaProperties;
+			}
+
 			@Bean
 			public OpenEntityManagerInViewInterceptor openEntityManagerInViewInterceptor() {
+				if (this.jpaProperties.getOpenInView() == null) {
+					logger.warn("spring.jpa.open-in-view is enabled by default. "
+							+ "Therefore, database queries may be performed during view "
+							+ "rendering. Explicitly configure "
+							+ "spring.jpa.open-in-view to disable this warning");
+				}
 				return new OpenEntityManagerInViewInterceptor();
 			}
 

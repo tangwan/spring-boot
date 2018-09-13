@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,8 +45,8 @@ public class RunningDocumentationTests {
 
 	@Test
 	public void applicationPluginMainClassName() throws IOException {
-		assertThat(this.gradleBuild
-				.script("src/main/gradle/running/application-plugin-main-class-name.gradle")
+		assertThat(this.gradleBuild.script(
+				"src/main/gradle/running/application-plugin-main-class-name.gradle")
 				.build("configuredMainClass").getOutput())
 						.contains("com.example.ExampleApplication");
 	}
@@ -56,7 +56,7 @@ public class RunningDocumentationTests {
 		assertThat(this.gradleBuild
 				.script("src/main/gradle/running/spring-boot-dsl-main-class-name.gradle")
 				.build("configuredMainClass").getOutput())
-		.contains("com.example.ExampleApplication");
+						.contains("com.example.ExampleApplication");
 	}
 
 	@Test
@@ -65,13 +65,6 @@ public class RunningDocumentationTests {
 				.script("src/main/gradle/running/boot-run-source-resources.gradle")
 				.build("configuredClasspath").getOutput())
 						.contains(new File("src/main/resources").getPath());
-	}
-
-	@Test
-	public void bootRunExecSpecCustomization() throws IOException {
-		this.gradleBuild
-				.script("src/main/gradle/running/boot-run-custom-exec-spec.gradle")
-				.build();
 	}
 
 }

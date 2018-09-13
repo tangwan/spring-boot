@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,10 +30,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  * @author Christian Dupuis
  * @author Andy Wilkinson
  */
+@Deprecated
 public class CompositeHealthIndicatorFactoryTests {
 
 	@Test
-	public void upAndUpIsAggregatedToUp() throws Exception {
+	public void upAndUpIsAggregatedToUp() {
 		Map<String, HealthIndicator> healthIndicators = new HashMap<>();
 		healthIndicators.put("up", () -> new Health.Builder().status(Status.UP).build());
 		healthIndicators.put("upAgain",
@@ -43,7 +44,7 @@ public class CompositeHealthIndicatorFactoryTests {
 	}
 
 	@Test
-	public void upAndDownIsAggregatedToDown() throws Exception {
+	public void upAndDownIsAggregatedToDown() {
 		Map<String, HealthIndicator> healthIndicators = new HashMap<>();
 		healthIndicators.put("up", () -> new Health.Builder().status(Status.UP).build());
 		healthIndicators.put("down",
@@ -53,7 +54,7 @@ public class CompositeHealthIndicatorFactoryTests {
 	}
 
 	@Test
-	public void unknownStatusMapsToUnknown() throws Exception {
+	public void unknownStatusMapsToUnknown() {
 		Map<String, HealthIndicator> healthIndicators = new HashMap<>();
 		healthIndicators.put("status", () -> new Health.Builder().status("FINE").build());
 		HealthIndicator healthIndicator = createHealthIndicator(healthIndicators);

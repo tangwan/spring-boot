@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import org.springframework.util.Assert;
 
 /**
  * An {@link ApplicationContext} that additionally supports AssertJ style assertions. Can
- * be used to decorate and existing application context or an application context that
+ * be used to decorate an existing application context or an application context that
  * failed to start.
  * <p>
  * Assertions can be applied using the standard AssertJ {@code assertThat(...)} style (see
@@ -41,7 +41,7 @@ import org.springframework.util.Assert;
  * Any {@link ApplicationContext} method called on a context that has failed to start will
  * throw an {@link IllegalStateException}.
  *
- * @param <C> The application context type
+ * @param <C> the application context type
  * @author Phillip Webb
  * @see AssertableApplicationContext
  * @see AssertableWebApplicationContext

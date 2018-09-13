@@ -59,7 +59,7 @@ public class SpringApplicationAdminMXBeanRegistrarTests {
 	private ConfigurableApplicationContext context;
 
 	@Before
-	public void setup() throws MalformedObjectNameException {
+	public void setup() {
 		this.mBeanServer = ManagementFactory.getPlatformMBeanServer();
 	}
 
@@ -175,8 +175,8 @@ public class SpringApplicationAdminMXBeanRegistrarTests {
 		try {
 			return new ObjectName(jmxName);
 		}
-		catch (MalformedObjectNameException e) {
-			throw new IllegalStateException("Invalid jmx name " + jmxName, e);
+		catch (MalformedObjectNameException ex) {
+			throw new IllegalStateException("Invalid jmx name " + jmxName, ex);
 		}
 	}
 

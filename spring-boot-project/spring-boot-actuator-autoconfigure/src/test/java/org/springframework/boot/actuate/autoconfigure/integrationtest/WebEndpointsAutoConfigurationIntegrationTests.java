@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,16 +19,16 @@ package org.springframework.boot.actuate.autoconfigure.integrationtest;
 import org.junit.Test;
 
 import org.springframework.boot.SpringBootConfiguration;
-import org.springframework.boot.actuate.health.HealthReactiveWebEndpointExtension;
-import org.springframework.boot.actuate.health.HealthWebEndpointExtension;
-import org.springframework.boot.actuate.health.StatusReactiveWebEndpointExtension;
-import org.springframework.boot.actuate.health.StatusWebEndpointExtension;
+import org.springframework.boot.actuate.autoconfigure.metrics.MetricsAutoConfiguration;
+import org.springframework.boot.actuate.health.HealthEndpointWebExtension;
+import org.springframework.boot.actuate.health.ReactiveHealthEndpointWebExtension;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.cassandra.CassandraAutoConfiguration;
 import org.springframework.boot.autoconfigure.data.cassandra.CassandraDataAutoConfiguration;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchAutoConfiguration;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration;
 import org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfiguration;
+import org.springframework.boot.autoconfigure.data.mongo.MongoReactiveDataAutoConfiguration;
 import org.springframework.boot.autoconfigure.data.neo4j.Neo4jDataAutoConfiguration;
 import org.springframework.boot.autoconfigure.data.neo4j.Neo4jRepositoriesAutoConfiguration;
 import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
@@ -40,6 +40,7 @@ import org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration;
 import org.springframework.boot.autoconfigure.hazelcast.HazelcastAutoConfiguration;
 import org.springframework.boot.autoconfigure.liquibase.LiquibaseAutoConfiguration;
 import org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration;
+import org.springframework.boot.autoconfigure.mongo.MongoReactiveAutoConfiguration;
 import org.springframework.boot.autoconfigure.solr.SolrAutoConfiguration;
 import org.springframework.boot.context.annotation.UserConfigurations;
 import org.springframework.boot.test.context.runner.ReactiveWebApplicationContextRunner;
@@ -59,25 +60,13 @@ public class WebEndpointsAutoConfigurationIntegrationTests {
 		servletWebRunner()
 				.run((context) -> context.getBean(WebEndpointTestApplication.class));
 		servletWebRunner().run((context) -> assertThat(context)
-				.hasSingleBean(HealthWebEndpointExtension.class));
-	}
-
-	@Test
-	public void statusEndpointWebExtensionIsAutoConfigured() {
-		servletWebRunner().run((context) -> assertThat(context)
-				.hasSingleBean(StatusWebEndpointExtension.class));
+				.hasSingleBean(HealthEndpointWebExtension.class));
 	}
 
 	@Test
 	public void healthEndpointReactiveWebExtensionIsAutoConfigured() {
 		reactiveWebRunner().run((context) -> assertThat(context)
-				.hasSingleBean(HealthReactiveWebEndpointExtension.class));
-	}
-
-	@Test
-	public void statusEndpointReactiveWebExtensionIsAutoConfigured() {
-		reactiveWebRunner().run((context) -> assertThat(context)
-				.hasSingleBean(StatusReactiveWebEndpointExtension.class));
+				.hasSingleBean(ReactiveHealthEndpointWebExtension.class));
 	}
 
 	private WebApplicationContextRunner servletWebRunner() {
@@ -94,11 +83,14 @@ public class WebEndpointsAutoConfigurationIntegrationTests {
 			LiquibaseAutoConfiguration.class, CassandraAutoConfiguration.class,
 			CassandraDataAutoConfiguration.class, Neo4jDataAutoConfiguration.class,
 			Neo4jRepositoriesAutoConfiguration.class, MongoAutoConfiguration.class,
+			MongoDataAutoConfiguration.class, MongoReactiveAutoConfiguration.class,
+			MongoReactiveDataAutoConfiguration.class,
 			RepositoryRestMvcAutoConfiguration.class, HazelcastAutoConfiguration.class,
-			MongoDataAutoConfiguration.class, ElasticsearchAutoConfiguration.class,
+			ElasticsearchAutoConfiguration.class,
 			ElasticsearchDataAutoConfiguration.class, JestAutoConfiguration.class,
 			SolrRepositoriesAutoConfiguration.class, SolrAutoConfiguration.class,
-			RedisAutoConfiguration.class, RedisRepositoriesAutoConfiguration.class })
+			RedisAutoConfiguration.class, RedisRepositoriesAutoConfiguration.class,
+			MetricsAutoConfiguration.class })
 	@SpringBootConfiguration
 	public static class WebEndpointTestApplication {
 

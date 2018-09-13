@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,8 +25,10 @@ import javax.sql.DataSource;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import org.springframework.boot.context.config.ResourceNotFoundException;
+import org.springframework.boot.context.properties.source.InvalidConfigurationPropertyValueException;
 import org.springframework.boot.jdbc.DataSourceBuilder;
+import org.springframework.boot.jdbc.DataSourceInitializationMode;
+import org.springframework.boot.jdbc.EmbeddedDatabaseConnection;
 import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
@@ -66,8 +68,8 @@ class DataSourceInitializer {
 			ResourceLoader resourceLoader) {
 		this.dataSource = dataSource;
 		this.properties = properties;
-		this.resourceLoader = (resourceLoader != null ? resourceLoader
-				: new DefaultResourceLoader());
+		this.resourceLoader = (resourceLoader != null) ? resourceLoader
+				: new DefaultResourceLoader();
 	}
 
 	/**
@@ -90,13 +92,13 @@ class DataSourceInitializer {
 	 * @see DataSourceProperties#getSchema()
 	 */
 	public boolean createSchema() {
-		if (!this.properties.isInitialize()) {
-			logger.debug("Initialization disabled (not running DDL scripts)");
-			return false;
-		}
 		List<Resource> scripts = getScripts("spring.datasource.schema",
 				this.properties.getSchema(), "schema");
 		if (!scripts.isEmpty()) {
+			if (!isEnabled()) {
+				logger.debug("Initialization disabled (not running DDL scripts)");
+				return false;
+			}
 			String username = this.properties.getSchemaUsername();
 			String password = this.properties.getSchemaPassword();
 			runScripts(scripts, username, password);
@@ -109,16 +111,37 @@ class DataSourceInitializer {
 	 * @see DataSourceProperties#getData()
 	 */
 	public void initSchema() {
-		if (!this.properties.isInitialize()) {
-			logger.debug("Initialization disabled (not running data scripts)");
-			return;
-		}
 		List<Resource> scripts = getScripts("spring.datasource.data",
 				this.properties.getData(), "data");
 		if (!scripts.isEmpty()) {
+			if (!isEnabled()) {
+				logger.debug("Initialization disabled (not running data scripts)");
+				return;
+			}
 			String username = this.properties.getDataUsername();
 			String password = this.properties.getDataPassword();
 			runScripts(scripts, username, password);
+		}
+	}
+
+	private boolean isEnabled() {
+		DataSourceInitializationMode mode = this.properties.getInitializationMode();
+		if (mode == DataSourceInitializationMode.NEVER) {
+			return false;
+		}
+		if (mode == DataSourceInitializationMode.EMBEDDED && !isEmbedded()) {
+			return false;
+		}
+		return true;
+	}
+
+	private boolean isEmbedded() {
+		try {
+			return EmbeddedDatabaseConnection.isEmbedded(this.dataSource);
+		}
+		catch (Exception ex) {
+			logger.debug("Could not determine if datasource is embedded", ex);
+			return false;
 		}
 	}
 
@@ -143,7 +166,8 @@ class DataSourceInitializer {
 					resources.add(resource);
 				}
 				else if (validate) {
-					throw new ResourceNotFoundException(propertyName, resource);
+					throw new InvalidConfigurationPropertyValueException(propertyName,
+							resource, "The specified resource does not exist.");
 				}
 			}
 		}

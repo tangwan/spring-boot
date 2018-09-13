@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,9 +44,9 @@ public class ItemHint implements Comparable<ItemHint> {
 
 	public ItemHint(String name, List<ValueHint> values, List<ValueProvider> providers) {
 		this.name = toCanonicalName(name);
-		this.values = (values != null ? new ArrayList<>(values) : new ArrayList<>());
-		this.providers = (providers != null ? new ArrayList<>(providers)
-				: new ArrayList<>());
+		this.values = (values != null) ? new ArrayList<>(values) : new ArrayList<>();
+		this.providers = (providers != null) ? new ArrayList<>(providers)
+				: new ArrayList<>();
 	}
 
 	private String toCanonicalName(String name) {
@@ -77,8 +77,7 @@ public class ItemHint implements Comparable<ItemHint> {
 	}
 
 	public static ItemHint newHint(String name, ValueHint... values) {
-		return new ItemHint(name, Arrays.asList(values),
-				Collections.<ValueProvider>emptyList());
+		return new ItemHint(name, Arrays.asList(values), Collections.emptyList());
 	}
 
 	@Override

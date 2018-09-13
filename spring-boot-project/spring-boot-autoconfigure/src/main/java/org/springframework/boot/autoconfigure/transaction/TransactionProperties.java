@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,11 @@
 
 package org.springframework.boot.autoconfigure.transaction;
 
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.convert.DurationUnit;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 
 /**
@@ -32,20 +36,22 @@ public class TransactionProperties implements
 		PlatformTransactionManagerCustomizer<AbstractPlatformTransactionManager> {
 
 	/**
-	 * Default transaction timeout in seconds.
+	 * Default transaction timeout. If a duration suffix is not specified, seconds will be
+	 * used.
 	 */
-	private Integer defaultTimeout;
+	@DurationUnit(ChronoUnit.SECONDS)
+	private Duration defaultTimeout;
 
 	/**
-	 * Perform the rollback on commit failures.
+	 * Whether to roll back on commit failures.
 	 */
 	private Boolean rollbackOnCommitFailure;
 
-	public Integer getDefaultTimeout() {
+	public Duration getDefaultTimeout() {
 		return this.defaultTimeout;
 	}
 
-	public void setDefaultTimeout(Integer defaultTimeout) {
+	public void setDefaultTimeout(Duration defaultTimeout) {
 		this.defaultTimeout = defaultTimeout;
 	}
 
@@ -60,7 +66,7 @@ public class TransactionProperties implements
 	@Override
 	public void customize(AbstractPlatformTransactionManager transactionManager) {
 		if (this.defaultTimeout != null) {
-			transactionManager.setDefaultTimeout(this.defaultTimeout);
+			transactionManager.setDefaultTimeout((int) this.defaultTimeout.getSeconds());
 		}
 		if (this.rollbackOnCommitFailure != null) {
 			transactionManager.setRollbackOnCommitFailure(this.rollbackOnCommitFailure);

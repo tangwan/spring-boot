@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,7 +49,8 @@ import org.springframework.web.reactive.function.client.WebClient;
  */
 @Configuration
 @ConditionalOnClass(WebClient.class)
-@AutoConfigureAfter(CodecsAutoConfiguration.class)
+@AutoConfigureAfter({ CodecsAutoConfiguration.class,
+		ClientHttpConnectorAutoConfiguration.class })
 public class WebClientAutoConfiguration {
 
 	private final WebClient.Builder webClientBuilder;
@@ -69,7 +70,7 @@ public class WebClientAutoConfiguration {
 	@Bean
 	@Scope("prototype")
 	@ConditionalOnMissingBean
-	public WebClient.Builder webClientBuilder(List<WebClientCustomizer> customizers) {
+	public WebClient.Builder webClientBuilder() {
 		return this.webClientBuilder.clone();
 	}
 

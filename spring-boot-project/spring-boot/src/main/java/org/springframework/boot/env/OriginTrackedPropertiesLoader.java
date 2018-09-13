@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.LineNumberReader;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -134,7 +135,7 @@ class OriginTrackedPropertiesLoader {
 			reader.read();
 		}
 		Origin origin = new TextResourceOrigin(this.resource, location);
-		return OriginTrackedValue.of(buffer.toString().trim(), origin);
+		return OriginTrackedValue.of(buffer.toString(), origin);
 	}
 
 	/**
@@ -154,8 +155,8 @@ class OriginTrackedPropertiesLoader {
 		private int character;
 
 		CharacterReader(Resource resource) throws IOException {
-			this.reader = new LineNumberReader(
-					new InputStreamReader(resource.getInputStream(), "8859_1"));
+			this.reader = new LineNumberReader(new InputStreamReader(
+					resource.getInputStream(), StandardCharsets.ISO_8859_1));
 		}
 
 		@Override
@@ -223,17 +224,17 @@ class OriginTrackedPropertiesLoader {
 			this.character = 0;
 			for (int i = 0; i < 4; i++) {
 				int digit = this.reader.read();
-				if (digit > -'0' && digit <= '9') {
+				if (digit >= '0' && digit <= '9') {
 					this.character = (this.character << 4) + digit - '0';
 				}
-				else if (digit > -'a' && digit <= 'f') {
+				else if (digit >= 'a' && digit <= 'f') {
 					this.character = (this.character << 4) + digit - 'a' + 10;
 				}
-				else if (digit > -'A' && digit <= 'F') {
+				else if (digit >= 'A' && digit <= 'F') {
 					this.character = (this.character << 4) + digit - 'A' + 10;
 				}
 				else {
-					throw new IllegalArgumentException("Malformed \\uxxxx encoding.");
+					throw new IllegalStateException("Malformed \\uxxxx encoding.");
 				}
 			}
 		}

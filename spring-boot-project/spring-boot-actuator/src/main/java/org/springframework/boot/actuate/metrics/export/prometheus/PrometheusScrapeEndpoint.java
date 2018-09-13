@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,9 +23,9 @@ import java.io.Writer;
 import io.prometheus.client.CollectorRegistry;
 import io.prometheus.client.exporter.common.TextFormat;
 
-import org.springframework.boot.actuate.endpoint.EndpointExposure;
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
 import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
+import org.springframework.boot.actuate.endpoint.web.annotation.WebEndpoint;
 
 /**
  * {@link Endpoint} that outputs metrics in a format that can be scraped by the Prometheus
@@ -34,7 +34,7 @@ import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
  * @author Jon Schneider
  * @since 2.0.0
  */
-@Endpoint(id = "prometheus", exposure = EndpointExposure.WEB)
+@WebEndpoint(id = "prometheus")
 public class PrometheusScrapeEndpoint {
 
 	private final CollectorRegistry collectorRegistry;
@@ -50,10 +50,10 @@ public class PrometheusScrapeEndpoint {
 			TextFormat.write004(writer, this.collectorRegistry.metricFamilySamples());
 			return writer.toString();
 		}
-		catch (IOException e) {
+		catch (IOException ex) {
 			// This actually never happens since StringWriter::write() doesn't throw any
 			// IOException
-			throw new RuntimeException("Writing metrics failed", e);
+			throw new RuntimeException("Writing metrics failed", ex);
 		}
 	}
 

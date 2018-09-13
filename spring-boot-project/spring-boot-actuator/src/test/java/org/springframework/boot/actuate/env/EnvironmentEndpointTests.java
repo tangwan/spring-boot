@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -112,6 +112,11 @@ public class EnvironmentEndpointTests {
 							.isEqualTo("******");
 					assertThat(systemProperties.get("VCAP_SERVICES").getValue())
 							.isEqualTo("******");
+					PropertyValueDescriptor command = systemProperties
+							.get("sun.java.command");
+					if (command != null) {
+						assertThat(command.getValue()).isEqualTo("******");
+					}
 					return null;
 				});
 	}
@@ -271,6 +276,23 @@ public class EnvironmentEndpointTests {
 		Map<String, PropertySourceEntryDescriptor> sources = propertySources(descriptor);
 		assertThat(sources.keySet()).containsExactly("test");
 		assertPropertySourceEntryDescriptor(sources.get("test"), null, null);
+	}
+
+	@Test
+	public void multipleSourcesWithSameProperty() {
+		ConfigurableEnvironment environment = emptyEnvironment();
+		environment.getPropertySources()
+				.addFirst(singleKeyPropertySource("one", "a", "alpha"));
+		environment.getPropertySources()
+				.addFirst(singleKeyPropertySource("two", "a", "apple"));
+		EnvironmentDescriptor descriptor = new EnvironmentEndpoint(environment)
+				.environment(null);
+		Map<String, PropertySourceDescriptor> sources = propertySources(descriptor);
+		assertThat(sources.keySet()).containsExactly("two", "one");
+		assertThat(sources.get("one").getProperties().get("a").getValue())
+				.isEqualTo("alpha");
+		assertThat(sources.get("two").getProperties().get("a").getValue())
+				.isEqualTo("apple");
 	}
 
 	private static ConfigurableEnvironment emptyEnvironment() {

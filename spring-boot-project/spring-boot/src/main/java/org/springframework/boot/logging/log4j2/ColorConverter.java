@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ import org.springframework.boot.ansi.AnsiStyle;
 @ConverterKeys({ "clr", "color" })
 public final class ColorConverter extends LogEventPatternConverter {
 
-	private static final Map<String, AnsiElement> elements;
+	private static final Map<String, AnsiElement> ELEMENTS;
 
 	static {
 		Map<String, AnsiElement> ansiElements = new HashMap<>();
@@ -60,17 +60,17 @@ public final class ColorConverter extends LogEventPatternConverter {
 		ansiElements.put("blue", AnsiColor.BLUE);
 		ansiElements.put("magenta", AnsiColor.MAGENTA);
 		ansiElements.put("cyan", AnsiColor.CYAN);
-		elements = Collections.unmodifiableMap(ansiElements);
+		ELEMENTS = Collections.unmodifiableMap(ansiElements);
 	}
 
-	private static final Map<Integer, AnsiElement> levels;
+	private static final Map<Integer, AnsiElement> LEVELS;
 
 	static {
 		Map<Integer, AnsiElement> ansiLevels = new HashMap<>();
 		ansiLevels.put(Level.FATAL.intLevel(), AnsiColor.RED);
 		ansiLevels.put(Level.ERROR.intLevel(), AnsiColor.RED);
 		ansiLevels.put(Level.WARN.intLevel(), AnsiColor.YELLOW);
-		levels = Collections.unmodifiableMap(ansiLevels);
+		LEVELS = Collections.unmodifiableMap(ansiLevels);
 	}
 
 	private final List<PatternFormatter> formatters;
@@ -101,7 +101,7 @@ public final class ColorConverter extends LogEventPatternConverter {
 		}
 		PatternParser parser = PatternLayout.createPatternParser(config);
 		List<PatternFormatter> formatters = parser.parse(options[0]);
-		AnsiElement element = (options.length == 1 ? null : elements.get(options[1]));
+		AnsiElement element = (options.length != 1) ? ELEMENTS.get(options[1]) : null;
 		return new ColorConverter(formatters, element);
 	}
 
@@ -125,8 +125,8 @@ public final class ColorConverter extends LogEventPatternConverter {
 			AnsiElement element = this.styling;
 			if (element == null) {
 				// Assume highlighting
-				element = levels.get(event.getLevel().intLevel());
-				element = (element == null ? AnsiColor.GREEN : element);
+				element = LEVELS.get(event.getLevel().intLevel());
+				element = (element != null) ? element : AnsiColor.GREEN;
 			}
 			appendAnsiString(toAppendTo, buf.toString(), element);
 		}

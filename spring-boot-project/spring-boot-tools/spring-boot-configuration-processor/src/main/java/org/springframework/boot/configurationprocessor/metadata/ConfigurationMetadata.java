@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -148,7 +149,12 @@ public class ConfigurationMetadata {
 		if (candidates == null || candidates.isEmpty()) {
 			return null;
 		}
+		candidates = new ArrayList<>(candidates);
 		candidates.removeIf((itemMetadata) -> !itemMetadata.hasSameType(metadata));
+		if (candidates.size() > 1 && metadata.getType() != null) {
+			candidates.removeIf(
+					(itemMetadata) -> !metadata.getType().equals(itemMetadata.getType()));
+		}
 		if (candidates.size() == 1) {
 			return candidates.get(0);
 		}
@@ -168,9 +174,9 @@ public class ConfigurationMetadata {
 	}
 
 	public static String nestedPrefix(String prefix, String name) {
-		String nestedPrefix = (prefix == null ? "" : prefix);
+		String nestedPrefix = (prefix != null) ? prefix : "";
 		String dashedName = toDashedCase(name);
-		nestedPrefix += ("".equals(nestedPrefix) ? dashedName : "." + dashedName);
+		nestedPrefix += "".equals(nestedPrefix) ? dashedName : "." + dashedName;
 		return nestedPrefix;
 	}
 
@@ -191,7 +197,7 @@ public class ConfigurationMetadata {
 			previous = current;
 
 		}
-		return dashed.toString().toLowerCase();
+		return dashed.toString().toLowerCase(Locale.ENGLISH);
 	}
 
 	private static <T extends Comparable<T>> List<T> flattenValues(Map<?, List<T>> map) {

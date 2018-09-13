@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@ public class HelpCommand extends AbstractCommand {
 	@Override
 	public Collection<OptionHelp> getOptionsHelp() {
 		List<OptionHelp> help = new ArrayList<>();
-		for (final Command command : this.commandRunner) {
+		for (Command command : this.commandRunner) {
 			if (isHelpShown(command)) {
 				help.add(new OptionHelp() {
 
@@ -107,7 +107,7 @@ public class HelpCommand extends AbstractCommand {
 				}
 				Collection<HelpExample> examples = command.getExamples();
 				if (examples != null) {
-					Log.info(examples.size() == 1 ? "example:" : "examples:");
+					Log.info((examples.size() != 1) ? "examples:" : "example:");
 					Log.info("");
 					for (HelpExample example : examples) {
 						Log.info("    " + example.getDescription() + ":");

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ public class LiquibaseProperties {
 	private String changeLog = "classpath:/db/changelog/db.changelog-master.yaml";
 
 	/**
-	 * Check the change log location exists.
+	 * Whether to check that the change log location exists.
 	 */
 	private boolean checkChangeLogLocation = true;
 
@@ -54,12 +54,32 @@ public class LiquibaseProperties {
 	private String defaultSchema;
 
 	/**
-	 * Drop the database schema first.
+	 * Schema to use for Liquibase objects.
+	 */
+	private String liquibaseSchema;
+
+	/**
+	 * Tablespace to use for Liquibase objects.
+	 */
+	private String liquibaseTablespace;
+
+	/**
+	 * Name of table to use for tracking change history.
+	 */
+	private String databaseChangeLogTable = "DATABASECHANGELOG";
+
+	/**
+	 * Name of table to use for tracking concurrent Liquibase usage.
+	 */
+	private String databaseChangeLogLockTable = "DATABASECHANGELOGLOCK";
+
+	/**
+	 * Whether to first drop the database schema.
 	 */
 	private boolean dropFirst;
 
 	/**
-	 * Enable liquibase support.
+	 * Whether to enable Liquibase support.
 	 */
 	private boolean enabled = true;
 
@@ -74,7 +94,7 @@ public class LiquibaseProperties {
 	private String password;
 
 	/**
-	 * JDBC url of the database to migrate. If not set, the primary configured data source
+	 * JDBC URL of the database to migrate. If not set, the primary configured data source
 	 * is used.
 	 */
 	private String url;
@@ -90,9 +110,14 @@ public class LiquibaseProperties {
 	private Map<String, String> parameters;
 
 	/**
-	 * File to which rollback SQL will be written when an update is performed.
+	 * File to which rollback SQL is written when an update is performed.
 	 */
 	private File rollbackFile;
+
+	/**
+	 * Whether rollback should be tested before update is performed.
+	 */
+	private boolean testRollbackOnUpdate;
 
 	public String getChangeLog() {
 		return this.changeLog;
@@ -125,6 +150,38 @@ public class LiquibaseProperties {
 
 	public void setDefaultSchema(String defaultSchema) {
 		this.defaultSchema = defaultSchema;
+	}
+
+	public String getLiquibaseSchema() {
+		return this.liquibaseSchema;
+	}
+
+	public void setLiquibaseSchema(String liquibaseSchema) {
+		this.liquibaseSchema = liquibaseSchema;
+	}
+
+	public String getLiquibaseTablespace() {
+		return this.liquibaseTablespace;
+	}
+
+	public void setLiquibaseTablespace(String liquibaseTablespace) {
+		this.liquibaseTablespace = liquibaseTablespace;
+	}
+
+	public String getDatabaseChangeLogTable() {
+		return this.databaseChangeLogTable;
+	}
+
+	public void setDatabaseChangeLogTable(String databaseChangeLogTable) {
+		this.databaseChangeLogTable = databaseChangeLogTable;
+	}
+
+	public String getDatabaseChangeLogLockTable() {
+		return this.databaseChangeLogLockTable;
+	}
+
+	public void setDatabaseChangeLogLockTable(String databaseChangeLogLockTable) {
+		this.databaseChangeLogLockTable = databaseChangeLogLockTable;
 	}
 
 	public boolean isDropFirst() {
@@ -189,6 +246,14 @@ public class LiquibaseProperties {
 
 	public void setRollbackFile(File rollbackFile) {
 		this.rollbackFile = rollbackFile;
+	}
+
+	public boolean isTestRollbackOnUpdate() {
+		return this.testRollbackOnUpdate;
+	}
+
+	public void setTestRollbackOnUpdate(boolean testRollbackOnUpdate) {
+		this.testRollbackOnUpdate = testRollbackOnUpdate;
 	}
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,6 @@
  */
 
 package org.springframework.boot.web.servlet;
-
-import java.io.IOException;
 
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
@@ -62,7 +60,17 @@ public class ServletContextInitializerBeansTests {
 		assertThat(initializerBeans.iterator()).hasOnlyElementsOfType(TestFilter.class);
 	}
 
-	private void load(Class<?> configuration) {
+	@Test
+	public void looksForInitializerBeansOfSpecifiedType() {
+		load(TestConfiguration.class);
+		ServletContextInitializerBeans initializerBeans = new ServletContextInitializerBeans(
+				this.context.getBeanFactory(), TestServletContextInitializer.class);
+		assertThat(initializerBeans.size()).isEqualTo(1);
+		assertThat(initializerBeans.iterator())
+				.hasOnlyElementsOfType(TestServletContextInitializer.class);
+	}
+
+	private void load(Class<?>... configuration) {
 		this.context = new AnnotationConfigApplicationContext(configuration);
 	}
 
@@ -84,10 +92,24 @@ public class ServletContextInitializerBeansTests {
 
 	}
 
+	static class TestConfiguration {
+
+		@Bean
+		public TestServletContextInitializer testServletContextInitializer() {
+			return new TestServletContextInitializer();
+		}
+
+		@Bean
+		public OtherTestServletContextInitializer otherTestServletContextInitializer() {
+			return new OtherTestServletContextInitializer();
+		}
+
+	}
+
 	static class TestServlet extends HttpServlet implements ServletContextInitializer {
 
 		@Override
-		public void onStartup(ServletContext servletContext) throws ServletException {
+		public void onStartup(ServletContext servletContext) {
 
 		}
 
@@ -96,23 +118,41 @@ public class ServletContextInitializerBeansTests {
 	static class TestFilter implements Filter, ServletContextInitializer {
 
 		@Override
-		public void onStartup(ServletContext servletContext) throws ServletException {
+		public void onStartup(ServletContext servletContext) {
 
 		}
 
 		@Override
-		public void init(FilterConfig filterConfig) throws ServletException {
+		public void init(FilterConfig filterConfig) {
 
 		}
 
 		@Override
 		public void doFilter(ServletRequest request, ServletResponse response,
-				FilterChain chain) throws IOException, ServletException {
+				FilterChain chain) {
 
 		}
 
 		@Override
 		public void destroy() {
+
+		}
+
+	}
+
+	static class TestServletContextInitializer implements ServletContextInitializer {
+
+		@Override
+		public void onStartup(ServletContext servletContext) throws ServletException {
+
+		}
+
+	}
+
+	static class OtherTestServletContextInitializer implements ServletContextInitializer {
+
+		@Override
+		public void onStartup(ServletContext servletContext) throws ServletException {
 
 		}
 

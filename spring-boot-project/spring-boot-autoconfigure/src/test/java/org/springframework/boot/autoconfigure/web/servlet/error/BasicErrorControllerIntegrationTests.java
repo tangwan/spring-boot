@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ import org.junit.After;
 import org.junit.Test;
 
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.autoconfigure.context.PropertyPlaceholderAutoConfiguration;
 import org.springframework.boot.autoconfigure.freemarker.FreeMarkerAutoConfiguration;
 import org.springframework.boot.autoconfigure.http.HttpMessageConvertersAutoConfiguration;
@@ -46,11 +47,11 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -83,7 +84,7 @@ public class BasicErrorControllerIntegrationTests {
 
 	@Test
 	@SuppressWarnings("rawtypes")
-	public void testErrorForMachineClient() throws Exception {
+	public void testErrorForMachineClient() {
 		load();
 		ResponseEntity<Map> entity = new TestRestTemplate()
 				.getForEntity(createUrl("?trace=true"), Map.class);
@@ -93,20 +94,34 @@ public class BasicErrorControllerIntegrationTests {
 	}
 
 	@Test
+	public void testErrorForMachineClientTraceParamTrue() {
+		errorForMachineClientOnTraceParam("?trace=true", true);
+	}
+
+	@Test
+	public void testErrorForMachineClientTraceParamFalse() {
+		errorForMachineClientOnTraceParam("?trace=false", false);
+	}
+
+	@Test
+	public void testErrorForMachineClientTraceParamAbsent() {
+		errorForMachineClientOnTraceParam("", false);
+	}
+
 	@SuppressWarnings("rawtypes")
-	public void testErrorForMachineClientTraceParamStacktrace() throws Exception {
+	private void errorForMachineClientOnTraceParam(String path, boolean expectedTrace) {
 		load("--server.error.include-exception=true",
 				"--server.error.include-stacktrace=on-trace-param");
-		ResponseEntity<Map> entity = new TestRestTemplate()
-				.getForEntity(createUrl("?trace=true"), Map.class);
+		ResponseEntity<Map> entity = new TestRestTemplate().getForEntity(createUrl(path),
+				Map.class);
 		assertErrorAttributes(entity.getBody(), "500", "Internal Server Error",
 				IllegalStateException.class, "Expected!", "/");
-		assertThat(entity.getBody().containsKey("trace")).isTrue();
+		assertThat(entity.getBody().containsKey("trace")).isEqualTo(expectedTrace);
 	}
 
 	@Test
 	@SuppressWarnings("rawtypes")
-	public void testErrorForMachineClientNoStacktrace() throws Exception {
+	public void testErrorForMachineClientNoStacktrace() {
 		load("--server.error.include-stacktrace=never");
 		ResponseEntity<Map> entity = new TestRestTemplate()
 				.getForEntity(createUrl("?trace=true"), Map.class);
@@ -117,7 +132,7 @@ public class BasicErrorControllerIntegrationTests {
 
 	@Test
 	@SuppressWarnings("rawtypes")
-	public void testErrorForMachineClientAlwaysStacktrace() throws Exception {
+	public void testErrorForMachineClientAlwaysStacktrace() {
 		load("--server.error.include-stacktrace=always");
 		ResponseEntity<Map> entity = new TestRestTemplate()
 				.getForEntity(createUrl("?trace=false"), Map.class);
@@ -128,7 +143,7 @@ public class BasicErrorControllerIntegrationTests {
 
 	@Test
 	@SuppressWarnings("rawtypes")
-	public void testErrorForAnnotatedException() throws Exception {
+	public void testErrorForAnnotatedException() {
 		load("--server.error.include-exception=true");
 		ResponseEntity<Map> entity = new TestRestTemplate()
 				.getForEntity(createUrl("/annotated"), Map.class);
@@ -139,7 +154,7 @@ public class BasicErrorControllerIntegrationTests {
 
 	@Test
 	@SuppressWarnings("rawtypes")
-	public void testErrorForAnnotatedNoReasonException() throws Exception {
+	public void testErrorForAnnotatedNoReasonException() {
 		load("--server.error.include-exception=true");
 		ResponseEntity<Map> entity = new TestRestTemplate()
 				.getForEntity(createUrl("/annotatedNoReason"), Map.class);
@@ -150,7 +165,7 @@ public class BasicErrorControllerIntegrationTests {
 
 	@Test
 	@SuppressWarnings("rawtypes")
-	public void testBindingExceptionForMachineClient() throws Exception {
+	public void testBindingExceptionForMachineClient() {
 		load("--server.error.include-exception=true");
 		RequestEntity request = RequestEntity.get(URI.create(createUrl("/bind")))
 				.accept(MediaType.APPLICATION_JSON).build();
@@ -164,10 +179,11 @@ public class BasicErrorControllerIntegrationTests {
 
 	@Test
 	@SuppressWarnings("rawtypes")
-	public void testRequestBodyValidationForMachineClient() throws Exception {
+	public void testRequestBodyValidationForMachineClient() {
 		load("--server.error.include-exception=true");
 		RequestEntity request = RequestEntity
 				.post(URI.create(createUrl("/bodyValidation")))
+				.accept(MediaType.APPLICATION_JSON)
 				.contentType(MediaType.APPLICATION_JSON).body("{}");
 		ResponseEntity<Map> entity = new TestRestTemplate().exchange(request, Map.class);
 		String resp = entity.getBody().toString();
@@ -179,7 +195,7 @@ public class BasicErrorControllerIntegrationTests {
 
 	@Test
 	@SuppressWarnings("rawtypes")
-	public void testNoExceptionByDefaultForMachineClient() throws Exception {
+	public void testNoExceptionByDefaultForMachineClient() {
 		load();
 		RequestEntity request = RequestEntity.get(URI.create(createUrl("/bind")))
 				.accept(MediaType.APPLICATION_JSON).build();
@@ -189,7 +205,7 @@ public class BasicErrorControllerIntegrationTests {
 	}
 
 	@Test
-	public void testConventionTemplateMapping() throws Exception {
+	public void testConventionTemplateMapping() {
 		load();
 		RequestEntity<?> request = RequestEntity.get(URI.create(createUrl("/noStorage")))
 				.accept(MediaType.TEXT_HTML).build();
@@ -228,14 +244,13 @@ public class BasicErrorControllerIntegrationTests {
 			args.addAll(Arrays.asList(arguments));
 		}
 		this.context = SpringApplication.run(TestConfiguration.class,
-				args.toArray(new String[args.size()]));
+				StringUtils.toStringArray(args));
 	}
 
 	@Target(ElementType.TYPE)
 	@Retention(RetentionPolicy.RUNTIME)
 	@Documented
-	@Import({ ServletWebServerFactoryAutoConfiguration.EmbeddedTomcat.class,
-			ServletWebServerFactoryAutoConfiguration.class,
+	@ImportAutoConfiguration({ ServletWebServerFactoryAutoConfiguration.class,
 			DispatcherServletAutoConfiguration.class, WebMvcAutoConfiguration.class,
 			HttpMessageConvertersAutoConfiguration.class, ErrorMvcAutoConfiguration.class,
 			PropertyPlaceholderAutoConfiguration.class })
@@ -245,7 +260,7 @@ public class BasicErrorControllerIntegrationTests {
 
 	@Configuration
 	@MinimalWebConfiguration
-	@Import(FreeMarkerAutoConfiguration.class)
+	@ImportAutoConfiguration(FreeMarkerAutoConfiguration.class)
 	public static class TestConfiguration {
 
 		// For manual testing
@@ -259,7 +274,7 @@ public class BasicErrorControllerIntegrationTests {
 				@Override
 				protected void renderMergedOutputModel(Map<String, Object> model,
 						HttpServletRequest request, HttpServletResponse response)
-								throws Exception {
+						throws Exception {
 					response.getWriter().write("ERROR_BEAN");
 				}
 			};

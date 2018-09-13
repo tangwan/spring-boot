@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -92,14 +92,14 @@ public class PackagingDocumentationTests {
 	@Test
 	public void springBootDslMainClass() throws IOException {
 		this.gradleBuild
-		.script("src/main/gradle/packaging/spring-boot-dsl-main-class.gradle")
-		.build("bootJar");
+				.script("src/main/gradle/packaging/spring-boot-dsl-main-class.gradle")
+				.build("bootJar");
 		File file = new File(this.gradleBuild.getProjectDir(),
 				"build/libs/" + this.gradleBuild.getProjectDir().getName() + ".jar");
 		assertThat(file).isFile();
 		try (JarFile jar = new JarFile(file)) {
 			assertThat(jar.getManifest().getMainAttributes().getValue("Start-Class"))
-			.isEqualTo("com.example.ExampleApplication");
+					.isEqualTo("com.example.ExampleApplication");
 		}
 	}
 
@@ -148,8 +148,8 @@ public class PackagingDocumentationTests {
 
 	@Test
 	public void bootJarLaunchScriptProperties() throws IOException {
-		this.gradleBuild
-				.script("src/main/gradle/packaging/boot-jar-launch-script-properties.gradle")
+		this.gradleBuild.script(
+				"src/main/gradle/packaging/boot-jar-launch-script-properties.gradle")
 				.build("bootJar");
 		File file = new File(this.gradleBuild.getProjectDir(),
 				"build/libs/" + this.gradleBuild.getProjectDir().getName() + ".jar");

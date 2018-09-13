@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,124 +16,93 @@
 
 package org.springframework.boot.actuate.autoconfigure.metrics;
 
-import java.util.Collections;
-import java.util.Map;
-import java.util.Set;
+import java.util.List;
 
+import io.micrometer.core.instrument.Clock;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Statistic;
 import io.micrometer.core.instrument.binder.MeterBinder;
-import io.micrometer.core.instrument.binder.jvm.JvmMemoryMetrics;
-import io.micrometer.core.instrument.binder.logging.LogbackMetrics;
+import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
-import org.springframework.boot.autoconfigure.http.HttpMessageConvertersAutoConfiguration;
-import org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration;
-import org.springframework.boot.autoconfigure.web.servlet.DispatcherServletAutoConfiguration;
-import org.springframework.boot.autoconfigure.web.servlet.ServletWebServerFactoryAutoConfiguration;
-import org.springframework.boot.autoconfigure.web.servlet.WebMvcAutoConfiguration;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
-import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.context.ApplicationContext;
+import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.junit4.SpringRunner;
-import org.springframework.test.web.client.MockRestServiceServer;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.client.ExpectedCount.once;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 /**
  * Tests for {@link MetricsAutoConfiguration}.
  *
- * @author Jon Schneider
+ * @author Andy Wilkinson
  */
-@RunWith(SpringRunner.class)
-@SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT, classes = MetricsAutoConfigurationTests.MetricsApp.class)
-@TestPropertySource(properties = "metrics.use-global-registry=false")
 public class MetricsAutoConfigurationTests {
 
-	@Autowired
-	private ApplicationContext context;
+	private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
+			.withConfiguration(AutoConfigurations.of(MetricsAutoConfiguration.class));
 
-	@Autowired
-	private RestTemplate external;
+	@Test
+	public void autoConfiguresAClock() {
+		this.contextRunner
+				.run((context) -> assertThat(context).hasSingleBean(Clock.class));
+	}
 
-	@Autowired
-	private TestRestTemplate loopback;
-
-	@Autowired
-	private MeterRegistry registry;
+	@Test
+	public void allowsACustomClockToBeUsed() {
+		this.contextRunner.withUserConfiguration(CustomClockConfiguration.class)
+				.run((context) -> assertThat(context).hasSingleBean(Clock.class)
+						.hasBean("customClock"));
+	}
 
 	@SuppressWarnings("unchecked")
 	@Test
-	public void restTemplateIsInstrumented() {
-		MockRestServiceServer server = MockRestServiceServer.bindTo(this.external)
-				.build();
-		server.expect(once(), requestTo("/api/external"))
-				.andExpect(method(HttpMethod.GET)).andRespond(withSuccess(
-						"{\"message\": \"hello\"}", MediaType.APPLICATION_JSON));
-		assertThat(this.external.getForObject("/api/external", Map.class))
-				.containsKey("message");
-		assertThat(this.registry.find("http.client.requests").value(Statistic.Count, 1.0)
-				.timer()).isPresent();
-	}
-
-	@Test
-	public void requestMappingIsInstrumented() {
-		this.loopback.getForObject("/api/people", Set.class);
-		assertThat(this.registry.find("http.server.requests").value(Statistic.Count, 1.0)
-				.timer()).isPresent();
-	}
-
-	@Test
-	public void automaticallyRegisteredBinders() {
-		assertThat(this.context.getBeansOfType(MeterBinder.class).values())
-				.hasAtLeastOneElementOfType(LogbackMetrics.class)
-				.hasAtLeastOneElementOfType(JvmMemoryMetrics.class);
+	public void configuresMeterRegistries() {
+		this.contextRunner.withUserConfiguration(MeterRegistryConfiguration.class)
+				.run((context) -> {
+					MeterRegistry meterRegistry = context.getBean(MeterRegistry.class);
+					List<MeterFilter> filters = (List<MeterFilter>) ReflectionTestUtils
+							.getField(meterRegistry, "filters");
+					assertThat(filters).isNotEmpty();
+					verify((MeterBinder) context.getBean("meterBinder"))
+							.bindTo(meterRegistry);
+					verify(context.getBean(MeterRegistryCustomizer.class))
+							.customize(meterRegistry);
+				});
 	}
 
 	@Configuration
-	@ImportAutoConfiguration({ MetricsAutoConfiguration.class,
-			JacksonAutoConfiguration.class, HttpMessageConvertersAutoConfiguration.class,
-			WebMvcAutoConfiguration.class, DispatcherServletAutoConfiguration.class,
-			ServletWebServerFactoryAutoConfiguration.class })
-	@Import(PersonController.class)
-	static class MetricsApp {
+	static class CustomClockConfiguration {
 
 		@Bean
-		public MeterRegistry registry() {
-			return new SimpleMeterRegistry();
-		}
-
-		@Bean
-		public RestTemplate restTemplate() {
-			return new RestTemplate();
+		Clock customClock() {
+			return Clock.SYSTEM;
 		}
 
 	}
 
-	@RestController
-	static class PersonController {
+	@Configuration
+	static class MeterRegistryConfiguration {
 
-		@GetMapping("/api/people")
-		Set<String> personName() {
-			return Collections.singleton("Jon");
+		@Bean
+		MeterRegistry meterRegistry() {
+			SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+			return spy(meterRegistry);
+		}
+
+		@Bean
+		@SuppressWarnings("rawtypes")
+		MeterRegistryCustomizer meterRegistryCustomizer() {
+			return mock(MeterRegistryCustomizer.class);
+		}
+
+		@Bean
+		MeterBinder meterBinder() {
+			return mock(MeterBinder.class);
 		}
 
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,22 +19,27 @@ package org.springframework.boot.autoconfigure.web;
 import java.io.File;
 import java.net.InetAddress;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.TimeZone;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.DeprecatedConfigurationProperty;
 import org.springframework.boot.context.properties.NestedConfigurationProperty;
+import org.springframework.boot.convert.DurationUnit;
 import org.springframework.boot.web.server.Compression;
+import org.springframework.boot.web.server.Http2;
 import org.springframework.boot.web.server.Ssl;
 import org.springframework.boot.web.servlet.server.Jsp;
-import org.springframework.util.Assert;
+import org.springframework.boot.web.servlet.server.Session;
 import org.springframework.util.StringUtils;
+import org.springframework.util.unit.DataSize;
 
 /**
  * {@link ConfigurationProperties} for a web server (e.g. port and path settings).
@@ -50,6 +55,7 @@ import org.springframework.util.StringUtils;
  * @author Aurélien Leboulanger
  * @author Brian Clozel
  * @author Olivier Lamy
+ * @author Chentao Qu
  */
 @ConfigurationProperties(prefix = "server", ignoreUnknownFields = true)
 public class ServerProperties {
@@ -60,49 +66,45 @@ public class ServerProperties {
 	private Integer port;
 
 	/**
-	 * Network address to which the server should bind to.
+	 * Network address to which the server should bind.
 	 */
 	private InetAddress address;
 
-	/**
-	 * Display name of the application.
-	 */
-	private String displayName = "application";
-
 	@NestedConfigurationProperty
-	private ErrorProperties error = new ErrorProperties();
+	private final ErrorProperties error = new ErrorProperties();
 
 	/**
-	 * If X-Forwarded-* headers should be applied to the HttpRequest.
+	 * Whether X-Forwarded-* headers should be applied to the HttpRequest.
 	 */
 	private Boolean useForwardHeaders;
 
 	/**
-	 * Value to use for the Server response header (no header is sent if empty).
+	 * Value to use for the Server response header (if empty, no header is sent).
 	 */
 	private String serverHeader;
 
 	/**
-	 * Maximum size in bytes of the HTTP message header.
+	 * Maximum size of the HTTP message header.
 	 */
-	private int maxHttpHeaderSize = 0; // bytes
+	private DataSize maxHttpHeaderSize = DataSize.ofKilobytes(8);
 
 	/**
-	 * Time in milliseconds that connectors will wait for another HTTP request before
-	 * closing the connection. When not set, the connector's server-specific default will
-	 * be used. Use a value of -1 to indicate no (i.e. infinite) timeout.
+	 * Time that connectors wait for another HTTP request before closing the connection.
+	 * When not set, the connector's container-specific default is used. Use a value of -1
+	 * to indicate no (that is, an infinite) timeout.
 	 */
-	private Integer connectionTimeout;
-
-	private Session session = new Session();
+	private Duration connectionTimeout;
 
 	@NestedConfigurationProperty
 	private Ssl ssl;
 
 	@NestedConfigurationProperty
-	private Compression compression = new Compression();
+	private final Compression compression = new Compression();
 
-	private Servlet servlet = new Servlet();
+	@NestedConfigurationProperty
+	private final Http2 http2 = new Http2();
+
+	private final Servlet servlet = new Servlet();
 
 	private final Tomcat tomcat = new Tomcat();
 
@@ -126,14 +128,6 @@ public class ServerProperties {
 		this.address = address;
 	}
 
-	public String getDisplayName() {
-		return this.displayName;
-	}
-
-	public void setDisplayName(String displayName) {
-		this.displayName = displayName;
-	}
-
 	public Boolean isUseForwardHeaders() {
 		return this.useForwardHeaders;
 	}
@@ -150,32 +144,24 @@ public class ServerProperties {
 		this.serverHeader = serverHeader;
 	}
 
-	public int getMaxHttpHeaderSize() {
+	public DataSize getMaxHttpHeaderSize() {
 		return this.maxHttpHeaderSize;
 	}
 
-	public void setMaxHttpHeaderSize(int maxHttpHeaderSize) {
+	public void setMaxHttpHeaderSize(DataSize maxHttpHeaderSize) {
 		this.maxHttpHeaderSize = maxHttpHeaderSize;
 	}
 
-	public Integer getConnectionTimeout() {
+	public Duration getConnectionTimeout() {
 		return this.connectionTimeout;
 	}
 
-	public void setConnectionTimeout(Integer connectionTimeout) {
+	public void setConnectionTimeout(Duration connectionTimeout) {
 		this.connectionTimeout = connectionTimeout;
 	}
 
 	public ErrorProperties getError() {
 		return this.error;
-	}
-
-	public Session getSession() {
-		return this.session;
-	}
-
-	public void setSession(Session session) {
-		this.session = session;
 	}
 
 	public Ssl getSsl() {
@@ -190,12 +176,12 @@ public class ServerProperties {
 		return this.compression;
 	}
 
-	public Servlet getServlet() {
-		return this.servlet;
+	public Http2 getHttp2() {
+		return this.http2;
 	}
 
-	public void setServlet(Servlet servlet) {
-		this.servlet = servlet;
+	public Servlet getServlet() {
+		return this.servlet;
 	}
 
 	public Tomcat getTomcat() {
@@ -213,7 +199,7 @@ public class ServerProperties {
 	/**
 	 * Servlet properties.
 	 */
-	public class Servlet {
+	public static class Servlet {
 
 		/**
 		 * Servlet context init parameters.
@@ -226,12 +212,15 @@ public class ServerProperties {
 		private String contextPath;
 
 		/**
-		 * Path of the main dispatcher servlet.
+		 * Display name of the application.
 		 */
-		private String path = "/";
+		private String applicationDisplayName = "application";
 
 		@NestedConfigurationProperty
-		private Jsp jsp = new Jsp();
+		private final Jsp jsp = new Jsp();
+
+		@NestedConfigurationProperty
+		private final Session session = new Session();
 
 		public String getContextPath() {
 			return this.contextPath;
@@ -248,13 +237,12 @@ public class ServerProperties {
 			return contextPath;
 		}
 
-		public String getPath() {
-			return this.path;
+		public String getApplicationDisplayName() {
+			return this.applicationDisplayName;
 		}
 
-		public void setPath(String path) {
-			Assert.notNull(path, "Path must not be null");
-			this.path = path;
+		public void setApplicationDisplayName(String displayName) {
+			this.applicationDisplayName = displayName;
 		}
 
 		public Map<String, String> getContextParameters() {
@@ -265,244 +253,8 @@ public class ServerProperties {
 			return this.jsp;
 		}
 
-		public void setJsp(Jsp jsp) {
-			this.jsp = jsp;
-		}
-
-		public String getServletMapping() {
-			if (this.path.equals("") || this.path.equals("/")) {
-				return "/";
-			}
-			if (this.path.contains("*")) {
-				return this.path;
-			}
-			if (this.path.endsWith("/")) {
-				return this.path + "*";
-			}
-			return this.path + "/*";
-		}
-
-		public String getPath(String path) {
-			String prefix = getServletPrefix();
-			if (!path.startsWith("/")) {
-				path = "/" + path;
-			}
-			return prefix + path;
-		}
-
-		public String getServletPrefix() {
-			String result = this.path;
-			if (result.contains("*")) {
-				result = result.substring(0, result.indexOf("*"));
-			}
-			if (result.endsWith("/")) {
-				result = result.substring(0, result.length() - 1);
-			}
-			return result;
-		}
-
-		public String[] getPathsArray(Collection<String> paths) {
-			String[] result = new String[paths.size()];
-			int i = 0;
-			for (String path : paths) {
-				result[i++] = getPath(path);
-			}
-			return result;
-		}
-
-		public String[] getPathsArray(String[] paths) {
-			String[] result = new String[paths.length];
-			int i = 0;
-			for (String path : paths) {
-				result[i++] = getPath(path);
-			}
-			return result;
-		}
-
-	}
-
-	/**
-	 * Session properties.
-	 */
-	public static class Session {
-
-		/**
-		 * Session timeout in seconds.
-		 */
-		private Integer timeout;
-
-		/**
-		 * Session tracking modes (one or more of the following: "cookie", "url", "ssl").
-		 */
-		private Set<SessionTrackingMode> trackingModes;
-
-		/**
-		 * Persist session data between restarts.
-		 */
-		private boolean persistent;
-
-		/**
-		 * Directory used to store session data.
-		 */
-		private File storeDir;
-
-		private Cookie cookie = new Cookie();
-
-		public Cookie getCookie() {
-			return this.cookie;
-		}
-
-		public Integer getTimeout() {
-			return this.timeout;
-		}
-
-		public void setTimeout(Integer sessionTimeout) {
-			this.timeout = sessionTimeout;
-		}
-
-		public Set<SessionTrackingMode> getTrackingModes() {
-			return this.trackingModes;
-		}
-
-		public void setTrackingModes(Set<SessionTrackingMode> trackingModes) {
-			this.trackingModes = trackingModes;
-		}
-
-		public boolean isPersistent() {
-			return this.persistent;
-		}
-
-		public void setPersistent(boolean persistent) {
-			this.persistent = persistent;
-		}
-
-		public File getStoreDir() {
-			return this.storeDir;
-		}
-
-		public void setStoreDir(File storeDir) {
-			this.storeDir = storeDir;
-		}
-
-		/**
-		 * Cookie properties.
-		 */
-		public static class Cookie {
-
-			/**
-			 * Session cookie name.
-			 */
-			private String name;
-
-			/**
-			 * Domain for the session cookie.
-			 */
-			private String domain;
-
-			/**
-			 * Path of the session cookie.
-			 */
-			private String path;
-
-			/**
-			 * Comment for the session cookie.
-			 */
-			private String comment;
-
-			/**
-			 * "HttpOnly" flag for the session cookie.
-			 */
-			private Boolean httpOnly;
-
-			/**
-			 * "Secure" flag for the session cookie.
-			 */
-			private Boolean secure;
-
-			/**
-			 * Maximum age of the session cookie in seconds.
-			 */
-			private Integer maxAge;
-
-			public String getName() {
-				return this.name;
-			}
-
-			public void setName(String name) {
-				this.name = name;
-			}
-
-			public String getDomain() {
-				return this.domain;
-			}
-
-			public void setDomain(String domain) {
-				this.domain = domain;
-			}
-
-			public String getPath() {
-				return this.path;
-			}
-
-			public void setPath(String path) {
-				this.path = path;
-			}
-
-			public String getComment() {
-				return this.comment;
-			}
-
-			public void setComment(String comment) {
-				this.comment = comment;
-			}
-
-			public Boolean getHttpOnly() {
-				return this.httpOnly;
-			}
-
-			public void setHttpOnly(Boolean httpOnly) {
-				this.httpOnly = httpOnly;
-			}
-
-			public Boolean getSecure() {
-				return this.secure;
-			}
-
-			public void setSecure(Boolean secure) {
-				this.secure = secure;
-			}
-
-			public Integer getMaxAge() {
-				return this.maxAge;
-			}
-
-			public void setMaxAge(Integer maxAge) {
-				this.maxAge = maxAge;
-			}
-
-		}
-
-		/**
-		 * Available session tracking modes (mirrors
-		 * {@link javax.servlet.SessionTrackingMode}.
-		 */
-		public enum SessionTrackingMode {
-
-			/**
-			 * Send a cookie in response to the client's first request.
-			 */
-			COOKIE,
-
-			/**
-			 * Rewrite the URL to append a session ID.
-			 */
-			URL,
-
-			/**
-			 * Use SSL build-in mechanism to track the session.
-			 */
-			SSL
-
+		public Session getSession() {
+			return this.session;
 		}
 
 	}
@@ -526,7 +278,8 @@ public class ServerProperties {
 				+ "127\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|" // 127/8
 				+ "172\\.1[6-9]{1}\\.\\d{1,3}\\.\\d{1,3}|" // 172.16/12
 				+ "172\\.2[0-9]{1}\\.\\d{1,3}\\.\\d{1,3}|"
-				+ "172\\.3[0-1]{1}\\.\\d{1,3}\\.\\d{1,3}";
+				+ "172\\.3[0-1]{1}\\.\\d{1,3}\\.\\d{1,3}|" //
+				+ "0:0:0:0:0:0:0:1|::1";
 
 		/**
 		 * Header that holds the incoming protocol, usually named "X-Forwarded-Proto".
@@ -534,7 +287,7 @@ public class ServerProperties {
 		private String protocolHeader;
 
 		/**
-		 * Value of the protocol header that indicates that the incoming request uses SSL.
+		 * Value of the protocol header indicating whether the incoming request uses SSL.
 		 */
 		private String protocolHeaderHttpsValue = "https";
 
@@ -544,63 +297,77 @@ public class ServerProperties {
 		private String portHeader = "X-Forwarded-Port";
 
 		/**
-		 * Name of the http header from which the remote ip is extracted..
+		 * Name of the HTTP header from which the remote IP is extracted. For instance,
+		 * `X-FORWARDED-FOR`.
 		 */
 		private String remoteIpHeader;
 
 		/**
-		 * Tomcat base directory. If not specified a temporary directory will be used.
+		 * Tomcat base directory. If not specified, a temporary directory is used.
 		 */
 		private File basedir;
 
 		/**
-		 * Delay in seconds between the invocation of backgroundProcess methods.
+		 * Delay between the invocation of backgroundProcess methods. If a duration suffix
+		 * is not specified, seconds will be used.
 		 */
-		private int backgroundProcessorDelay = 30; // seconds
+		@DurationUnit(ChronoUnit.SECONDS)
+		private Duration backgroundProcessorDelay = Duration.ofSeconds(10);
 
 		/**
-		 * Maximum amount of worker threads.
+		 * Maximum number of worker threads.
 		 */
-		private int maxThreads = 0; // Number of threads in protocol handler
+		private int maxThreads = 200;
 
 		/**
-		 * Minimum amount of worker threads.
+		 * Minimum number of worker threads.
 		 */
-		private int minSpareThreads = 0; // Minimum spare threads in protocol handler
+		private int minSpareThreads = 10;
 
 		/**
-		 * Maximum size in bytes of the HTTP post content.
+		 * Maximum size, in bytes, of the HTTP post content.
 		 */
-		private int maxHttpPostSize = 0; // bytes
+		private int maxHttpPostSize = 2097152;
 
 		/**
-		 * Maximum size in bytes of the HTTP message header.
+		 * Maximum size, in bytes, of the HTTP message header.
 		 */
-		private int maxHttpHeaderSize = 0; // bytes
+		private int maxHttpHeaderSize = 0;
+
+		/**
+		 * Maximum amount of request body to swallow.
+		 */
+		private DataSize maxSwallowSize = DataSize.ofMegabytes(2);
 
 		/**
 		 * Whether requests to the context root should be redirected by appending a / to
 		 * the path.
 		 */
-		private Boolean redirectContextRoot;
+		private Boolean redirectContextRoot = true;
+
+		/**
+		 * Whether HTTP 1.1 and later location headers generated by a call to sendRedirect
+		 * will use relative or absolute redirects.
+		 */
+		private Boolean useRelativeRedirects;
 
 		/**
 		 * Character encoding to use to decode the URI.
 		 */
-		private Charset uriEncoding;
+		private Charset uriEncoding = StandardCharsets.UTF_8;
 
 		/**
-		 * Maximum number of connections that the server will accept and process at any
+		 * Maximum number of connections that the server accepts and processes at any
 		 * given time. Once the limit has been reached, the operating system may still
 		 * accept connections based on the "acceptCount" property.
 		 */
-		private int maxConnections = 0;
+		private int maxConnections = 10000;
 
 		/**
 		 * Maximum queue length for incoming connection requests when all possible request
 		 * processing threads are in use.
 		 */
-		private int acceptCount = 0;
+		private int acceptCount = 100;
 
 		/**
 		 * Comma-separated list of additional patterns that match jars to ignore for TLD
@@ -608,6 +375,11 @@ public class ServerProperties {
 		 * match one and only one character and zero or more characters respectively.
 		 */
 		private List<String> additionalTldSkipPatterns = new ArrayList<>();
+
+		/**
+		 * Static resource configuration.
+		 */
+		private final Resource resource = new Resource();
 
 		public int getMaxThreads() {
 			return this.maxThreads;
@@ -637,11 +409,11 @@ public class ServerProperties {
 			return this.accesslog;
 		}
 
-		public int getBackgroundProcessorDelay() {
+		public Duration getBackgroundProcessorDelay() {
 			return this.backgroundProcessorDelay;
 		}
 
-		public void setBackgroundProcessorDelay(int backgroundProcessorDelay) {
+		public void setBackgroundProcessorDelay(Duration backgroundProcessorDelay) {
 			this.backgroundProcessorDelay = backgroundProcessorDelay;
 		}
 
@@ -693,6 +465,14 @@ public class ServerProperties {
 			this.redirectContextRoot = redirectContextRoot;
 		}
 
+		public Boolean getUseRelativeRedirects() {
+			return this.useRelativeRedirects;
+		}
+
+		public void setUseRelativeRedirects(Boolean useRelativeRedirects) {
+			this.useRelativeRedirects = useRelativeRedirects;
+		}
+
 		public String getRemoteIpHeader() {
 			return this.remoteIpHeader;
 		}
@@ -717,12 +497,23 @@ public class ServerProperties {
 			this.maxConnections = maxConnections;
 		}
 
+		@Deprecated
+		@DeprecatedConfigurationProperty(replacement = "server.max-http-header-size")
 		public int getMaxHttpHeaderSize() {
 			return this.maxHttpHeaderSize;
 		}
 
+		@Deprecated
 		public void setMaxHttpHeaderSize(int maxHttpHeaderSize) {
 			this.maxHttpHeaderSize = maxHttpHeaderSize;
+		}
+
+		public DataSize getMaxSwallowSize() {
+			return this.maxSwallowSize;
+		}
+
+		public void setMaxSwallowSize(DataSize maxSwallowSize) {
+			this.maxSwallowSize = maxSwallowSize;
 		}
 
 		public int getAcceptCount() {
@@ -741,6 +532,10 @@ public class ServerProperties {
 			this.additionalTldSkipPatterns = additionalTldSkipPatterns;
 		}
 
+		public Resource getResource() {
+			return this.resource;
+		}
+
 		/**
 		 * Tomcat access log properties.
 		 */
@@ -757,8 +552,8 @@ public class ServerProperties {
 			private String pattern = "common";
 
 			/**
-			 * Directory in which log files are created. Can be relative to the tomcat
-			 * base dir or absolute.
+			 * Directory in which log files are created. Can be absolute or relative to
+			 * the Tomcat base dir.
 			 */
 			private String directory = "logs";
 
@@ -773,28 +568,29 @@ public class ServerProperties {
 			private String suffix = ".log";
 
 			/**
-			 * Enable access log rotation.
+			 * Whether to enable access log rotation.
 			 */
 			private boolean rotate = true;
 
 			/**
-			 * Defer inclusion of the date stamp in the file name until rotate time.
+			 * Whether to defer inclusion of the date stamp in the file name until rotate
+			 * time.
 			 */
-			private boolean renameOnRotate;
+			private boolean renameOnRotate = false;
 
 			/**
-			 * Date format to place in log file name.
+			 * Date format to place in the log file name.
 			 */
 			private String fileDateFormat = ".yyyy-MM-dd";
 
 			/**
-			 * Set request attributes for IP address, Hostname, protocol and port used for
-			 * the request.
+			 * Set request attributes for the IP address, Hostname, protocol, and port
+			 * used for the request.
 			 */
-			private boolean requestAttributesEnabled;
+			private boolean requestAttributesEnabled = false;
 
 			/**
-			 * Buffer output such that it is only flushed periodically.
+			 * Whether to buffer output such that it is flushed only periodically.
 			 */
 			private boolean buffered = true;
 
@@ -880,6 +676,39 @@ public class ServerProperties {
 
 		}
 
+		/**
+		 * Tomcat static resource properties.
+		 */
+		public static class Resource {
+
+			/**
+			 * Whether static resource caching is permitted for this web application.
+			 */
+			private boolean allowCaching = true;
+
+			/**
+			 * Time-to-live of the static resource cache.
+			 */
+			private Duration cacheTtl;
+
+			public boolean isAllowCaching() {
+				return this.allowCaching;
+			}
+
+			public void setAllowCaching(boolean allowCaching) {
+				this.allowCaching = allowCaching;
+			}
+
+			public Duration getCacheTtl() {
+				return this.cacheTtl;
+			}
+
+			public void setCacheTtl(Duration cacheTtl) {
+				this.cacheTtl = cacheTtl;
+			}
+
+		}
+
 	}
 
 	/**
@@ -893,19 +722,21 @@ public class ServerProperties {
 		private final Accesslog accesslog = new Accesslog();
 
 		/**
-		 * Maximum size in bytes of the HTTP post or put content.
+		 * Maximum size, in bytes, of the HTTP post or put content.
 		 */
-		private int maxHttpPostSize = 0; // bytes
+		private int maxHttpPostSize = 200000; // bytes
 
 		/**
-		 * Number of acceptor threads to use.
+		 * Number of acceptor threads to use. When the value is -1, the default, the
+		 * number of acceptors is derived from the operating environment.
 		 */
-		private Integer acceptors;
+		private Integer acceptors = -1;
 
 		/**
-		 * Number of selector threads to use.
+		 * Number of selector threads to use. When the value is -1, the default, the
+		 * number of selectors is derived from the operating environment.
 		 */
-		private Integer selectors;
+		private Integer selectors = -1;
 
 		public Accesslog getAccesslog() {
 			return this.accesslog;
@@ -946,7 +777,7 @@ public class ServerProperties {
 			private boolean enabled = false;
 
 			/**
-			 * Log filename. If not specified, logs will be redirected to "System.err".
+			 * Log filename. If not specified, logs redirect to "System.err".
 			 */
 			private String filename;
 
@@ -1095,6 +926,7 @@ public class ServerProperties {
 			public void setLogLatency(boolean logLatency) {
 				this.logLatency = logLatency;
 			}
+
 		}
 
 	}
@@ -1105,27 +937,31 @@ public class ServerProperties {
 	public static class Undertow {
 
 		/**
-		 * Maximum size in bytes of the HTTP post content.
+		 * Maximum size, in bytes, of the HTTP post content. When the value is -1, the
+		 * default, the size is unlimited.
 		 */
-		private long maxHttpPostSize = 0; // bytes
+		private long maxHttpPostSize = -1; // bytes
 
 		/**
-		 * Size of each buffer in bytes.
+		 * Size of each buffer, in bytes. The default is derived from the maximum amount
+		 * of memory that is available to the JVM.
 		 */
 		private Integer bufferSize;
 
 		/**
-		 * Number of I/O threads to create for the worker.
+		 * Number of I/O threads to create for the worker. The default is derived from the
+		 * number of available processors.
 		 */
 		private Integer ioThreads;
 
 		/**
-		 * Number of worker threads.
+		 * Number of worker threads. The default is 8 times the number of I/O threads.
 		 */
 		private Integer workerThreads;
 
 		/**
-		 * Allocate buffers outside the Java heap.
+		 * Whether to allocate buffers outside the Java heap. The default is derived from
+		 * the maximum amount of memory that is available to the JVM.
 		 */
 		private Boolean directBuffers;
 
@@ -1194,9 +1030,9 @@ public class ServerProperties {
 		public static class Accesslog {
 
 			/**
-			 * Enable access log.
+			 * Whether to enable the access log.
 			 */
-			private Boolean enabled;
+			private boolean enabled = false;
 
 			/**
 			 * Format pattern for access logs.
@@ -1219,15 +1055,15 @@ public class ServerProperties {
 			private File dir = new File("logs");
 
 			/**
-			 * Enable access log rotation.
+			 * Whether to enable access log rotation.
 			 */
 			private boolean rotate = true;
 
-			public Boolean getEnabled() {
+			public boolean isEnabled() {
 				return this.enabled;
 			}
 
-			public void setEnabled(Boolean enabled) {
+			public void setEnabled(boolean enabled) {
 				this.enabled = enabled;
 			}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,9 +28,11 @@ import org.junit.Test;
 
 import org.springframework.boot.actuate.autoconfigure.endpoint.EndpointAutoConfiguration;
 import org.springframework.boot.actuate.autoconfigure.endpoint.jmx.JmxEndpointAutoConfiguration;
+import org.springframework.boot.actuate.autoconfigure.health.HealthIndicatorAutoConfiguration;
+import org.springframework.boot.actuate.autoconfigure.trace.http.HttpTraceAutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.jmx.JmxAutoConfiguration;
-import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 import org.springframework.util.StringUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,9 +45,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 public class JmxEndpointIntegrationTests {
 
-	private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
+	private final WebApplicationContextRunner contextRunner = new WebApplicationContextRunner()
 			.withConfiguration(AutoConfigurations.of(JmxAutoConfiguration.class,
-					EndpointAutoConfiguration.class, JmxEndpointAutoConfiguration.class))
+					EndpointAutoConfiguration.class, JmxEndpointAutoConfiguration.class,
+					HealthIndicatorAutoConfiguration.class,
+					HttpTraceAutoConfiguration.class))
 			.withConfiguration(
 					AutoConfigurations.of(EndpointAutoConfigurationClasses.ALL));
 
@@ -54,33 +58,35 @@ public class JmxEndpointIntegrationTests {
 		this.contextRunner.run((context) -> {
 			MBeanServer mBeanServer = context.getBean(MBeanServer.class);
 			checkEndpointMBeans(mBeanServer,
-					new String[] { "autoconfig", "beans", "configprops", "env", "health",
-							"info", "mappings", "status", "threaddump", "trace" },
+					new String[] { "beans", "conditions", "configprops", "env", "health",
+							"info", "mappings", "threaddump", "httptrace" },
 					new String[] { "shutdown" });
 		});
 	}
 
 	@Test
-	public void jmxEndpointsCanBeDisabled() {
-		this.contextRunner.withPropertyValues("endpoints.default.jmx.enabled:false")
+	public void jmxEndpointsCanBeExcluded() {
+		this.contextRunner
+				.withPropertyValues("management.endpoints.jmx.exposure.exclude:*")
 				.run((context) -> {
 					MBeanServer mBeanServer = context.getBean(MBeanServer.class);
 					checkEndpointMBeans(mBeanServer, new String[0],
-							new String[] { "autoconfig", "beans", "configprops", "env",
+							new String[] { "beans", "conditions", "configprops", "env",
 									"health", "mappings", "shutdown", "threaddump",
-									"trace" });
+									"httptrace" });
 
 				});
 	}
 
 	@Test
-	public void singleJmxEndpointCanBeEnabled() {
-		this.contextRunner.withPropertyValues("endpoints.default.jmx.enabled=false",
-				"endpoints.beans.jmx.enabled=true").run((context) -> {
+	public void singleJmxEndpointCanBeExposed() {
+		this.contextRunner
+				.withPropertyValues("management.endpoints.jmx.exposure.include=beans")
+				.run((context) -> {
 					MBeanServer mBeanServer = context.getBean(MBeanServer.class);
 					checkEndpointMBeans(mBeanServer, new String[] { "beans" },
-							new String[] { "autoconfig", "configprops", "env", "health",
-									"mappings", "shutdown", "threaddump", "trace" });
+							new String[] { "conditions", "configprops", "env", "health",
+									"mappings", "shutdown", "threaddump", "httptrace" });
 				});
 	}
 
@@ -101,7 +107,7 @@ public class JmxEndpointIntegrationTests {
 			getMBeanInfo(mBeanServer, objectName);
 			return true;
 		}
-		catch (InstanceNotFoundException e) {
+		catch (InstanceNotFoundException ex) {
 			return false;
 		}
 	}

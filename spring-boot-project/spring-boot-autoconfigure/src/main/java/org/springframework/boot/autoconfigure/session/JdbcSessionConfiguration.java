@@ -16,6 +16,8 @@
 
 package org.springframework.boot.autoconfigure.session;
 
+import java.time.Duration;
+
 import javax.sql.DataSource;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,16 +45,17 @@ import org.springframework.session.jdbc.config.annotation.web.http.JdbcHttpSessi
 @ConditionalOnClass({ JdbcTemplate.class, JdbcOperationsSessionRepository.class })
 @ConditionalOnMissingBean(SessionRepository.class)
 @ConditionalOnBean(DataSource.class)
-@Conditional(SessionCondition.class)
+@Conditional(ServletSessionCondition.class)
 @EnableConfigurationProperties(JdbcSessionProperties.class)
 class JdbcSessionConfiguration {
 
 	@Bean
 	@ConditionalOnMissingBean
-	public JdbcSessionDatabaseInitializer jdbcSessionDatabaseInitializer(
+	public JdbcSessionDataSourceInitializer jdbcSessionDataSourceInitializer(
 			DataSource dataSource, ResourceLoader resourceLoader,
 			JdbcSessionProperties properties) {
-		return new JdbcSessionDatabaseInitializer(dataSource, resourceLoader, properties);
+		return new JdbcSessionDataSourceInitializer(dataSource, resourceLoader,
+				properties);
 	}
 
 	@Configuration
@@ -62,11 +65,12 @@ class JdbcSessionConfiguration {
 		@Autowired
 		public void customize(SessionProperties sessionProperties,
 				JdbcSessionProperties jdbcSessionProperties) {
-			Integer timeout = sessionProperties.getTimeout();
+			Duration timeout = sessionProperties.getTimeout();
 			if (timeout != null) {
-				setMaxInactiveIntervalInSeconds(timeout);
+				setMaxInactiveIntervalInSeconds((int) timeout.getSeconds());
 			}
 			setTableName(jdbcSessionProperties.getTableName());
+			setCleanupCron(jdbcSessionProperties.getCleanupCron());
 		}
 
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,121 +41,121 @@ public class DeferredLogTests {
 	private Log log = mock(Log.class);
 
 	@Test
-	public void isTraceEnabled() throws Exception {
+	public void isTraceEnabled() {
 		assertThat(this.deferredLog.isTraceEnabled()).isTrue();
 	}
 
 	@Test
-	public void isDebugEnabled() throws Exception {
+	public void isDebugEnabled() {
 		assertThat(this.deferredLog.isDebugEnabled()).isTrue();
 	}
 
 	@Test
-	public void isInfoEnabled() throws Exception {
+	public void isInfoEnabled() {
 		assertThat(this.deferredLog.isInfoEnabled()).isTrue();
 	}
 
 	@Test
-	public void isWarnEnabled() throws Exception {
+	public void isWarnEnabled() {
 		assertThat(this.deferredLog.isWarnEnabled()).isTrue();
 	}
 
 	@Test
-	public void isErrorEnabled() throws Exception {
+	public void isErrorEnabled() {
 		assertThat(this.deferredLog.isErrorEnabled()).isTrue();
 	}
 
 	@Test
-	public void isFatalEnabled() throws Exception {
+	public void isFatalEnabled() {
 		assertThat(this.deferredLog.isFatalEnabled()).isTrue();
 	}
 
 	@Test
-	public void trace() throws Exception {
+	public void trace() {
 		this.deferredLog.trace(this.message);
 		this.deferredLog.replayTo(this.log);
 		verify(this.log).trace(this.message, null);
 	}
 
 	@Test
-	public void traceWithThrowable() throws Exception {
+	public void traceWithThrowable() {
 		this.deferredLog.trace(this.message, this.throwable);
 		this.deferredLog.replayTo(this.log);
 		verify(this.log).trace(this.message, this.throwable);
 	}
 
 	@Test
-	public void debug() throws Exception {
+	public void debug() {
 		this.deferredLog.debug(this.message);
 		this.deferredLog.replayTo(this.log);
 		verify(this.log).debug(this.message, null);
 	}
 
 	@Test
-	public void debugWithThrowable() throws Exception {
+	public void debugWithThrowable() {
 		this.deferredLog.debug(this.message, this.throwable);
 		this.deferredLog.replayTo(this.log);
 		verify(this.log).debug(this.message, this.throwable);
 	}
 
 	@Test
-	public void info() throws Exception {
+	public void info() {
 		this.deferredLog.info(this.message);
 		this.deferredLog.replayTo(this.log);
 		verify(this.log).info(this.message, null);
 	}
 
 	@Test
-	public void infoWithThrowable() throws Exception {
+	public void infoWithThrowable() {
 		this.deferredLog.info(this.message, this.throwable);
 		this.deferredLog.replayTo(this.log);
 		verify(this.log).info(this.message, this.throwable);
 	}
 
 	@Test
-	public void warn() throws Exception {
+	public void warn() {
 		this.deferredLog.warn(this.message);
 		this.deferredLog.replayTo(this.log);
 		verify(this.log).warn(this.message, null);
 	}
 
 	@Test
-	public void warnWithThrowable() throws Exception {
+	public void warnWithThrowable() {
 		this.deferredLog.warn(this.message, this.throwable);
 		this.deferredLog.replayTo(this.log);
 		verify(this.log).warn(this.message, this.throwable);
 	}
 
 	@Test
-	public void error() throws Exception {
+	public void error() {
 		this.deferredLog.error(this.message);
 		this.deferredLog.replayTo(this.log);
 		verify(this.log).error(this.message, null);
 	}
 
 	@Test
-	public void errorWithThrowable() throws Exception {
+	public void errorWithThrowable() {
 		this.deferredLog.error(this.message, this.throwable);
 		this.deferredLog.replayTo(this.log);
 		verify(this.log).error(this.message, this.throwable);
 	}
 
 	@Test
-	public void fatal() throws Exception {
+	public void fatal() {
 		this.deferredLog.fatal(this.message);
 		this.deferredLog.replayTo(this.log);
 		verify(this.log).fatal(this.message, null);
 	}
 
 	@Test
-	public void fatalWithThrowable() throws Exception {
+	public void fatalWithThrowable() {
 		this.deferredLog.fatal(this.message, this.throwable);
 		this.deferredLog.replayTo(this.log);
 		verify(this.log).fatal(this.message, this.throwable);
 	}
 
 	@Test
-	public void clearsOnReplayTo() throws Exception {
+	public void clearsOnReplayTo() {
 		this.deferredLog.info("1");
 		this.deferredLog.fatal("2");
 		Log log2 = mock(Log.class);
@@ -165,6 +165,15 @@ public class DeferredLogTests {
 		verify(this.log).fatal("2", null);
 		verifyNoMoreInteractions(this.log);
 		verifyZeroInteractions(log2);
+	}
+
+	@Test
+	public void switchTo() {
+		this.deferredLog.error(this.message, this.throwable);
+		this.deferredLog.switchTo(this.log);
+		this.deferredLog.info("Message2");
+		verify(this.log).error(this.message, this.throwable);
+		verify(this.log).info("Message2", null);
 	}
 
 }

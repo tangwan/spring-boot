@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ import org.springframework.boot.ansi.AnsiStyle;
  */
 public class ColorConverter extends CompositeConverter<ILoggingEvent> {
 
-	private static final Map<String, AnsiElement> elements;
+	private static final Map<String, AnsiElement> ELEMENTS;
 
 	static {
 		Map<String, AnsiElement> ansiElements = new HashMap<>();
@@ -49,25 +49,25 @@ public class ColorConverter extends CompositeConverter<ILoggingEvent> {
 		ansiElements.put("blue", AnsiColor.BLUE);
 		ansiElements.put("magenta", AnsiColor.MAGENTA);
 		ansiElements.put("cyan", AnsiColor.CYAN);
-		elements = Collections.unmodifiableMap(ansiElements);
+		ELEMENTS = Collections.unmodifiableMap(ansiElements);
 	}
 
-	private static final Map<Integer, AnsiElement> levels;
+	private static final Map<Integer, AnsiElement> LEVELS;
 
 	static {
 		Map<Integer, AnsiElement> ansiLevels = new HashMap<>();
 		ansiLevels.put(Level.ERROR_INTEGER, AnsiColor.RED);
 		ansiLevels.put(Level.WARN_INTEGER, AnsiColor.YELLOW);
-		levels = Collections.unmodifiableMap(ansiLevels);
+		LEVELS = Collections.unmodifiableMap(ansiLevels);
 	}
 
 	@Override
 	protected String transform(ILoggingEvent event, String in) {
-		AnsiElement element = elements.get(getFirstOption());
+		AnsiElement element = ELEMENTS.get(getFirstOption());
 		if (element == null) {
 			// Assume highlighting
-			element = levels.get(event.getLevel().toInteger());
-			element = (element == null ? AnsiColor.GREEN : element);
+			element = LEVELS.get(event.getLevel().toInteger());
+			element = (element != null) ? element : AnsiColor.GREEN;
 		}
 		return toAnsiString(in, element);
 	}

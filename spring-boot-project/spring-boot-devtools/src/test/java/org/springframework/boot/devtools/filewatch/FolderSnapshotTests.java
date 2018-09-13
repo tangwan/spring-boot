@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,13 +62,21 @@ public class FolderSnapshotTests {
 
 	@Test
 	public void folderMustNotBeFile() throws Exception {
+		File file = this.temporaryFolder.newFile();
 		this.thrown.expect(IllegalArgumentException.class);
-		this.thrown.expectMessage("Folder must not be a file");
-		new FolderSnapshot(this.temporaryFolder.newFile());
+		this.thrown.expectMessage("Folder '" + file + "' must not be a file");
+		new FolderSnapshot(file);
 	}
 
 	@Test
-	public void equalsWhenNothingHasChanged() throws Exception {
+	public void folderDoesNotHaveToExist() throws Exception {
+		File file = new File(this.temporaryFolder.getRoot(), "does/not/exist");
+		FolderSnapshot snapshot = new FolderSnapshot(file);
+		assertThat(snapshot).isEqualTo(new FolderSnapshot(file));
+	}
+
+	@Test
+	public void equalsWhenNothingHasChanged() {
 		FolderSnapshot updatedSnapshot = new FolderSnapshot(this.folder);
 		assertThat(this.initialSnapshot).isEqualTo(updatedSnapshot);
 		assertThat(this.initialSnapshot.hashCode()).isEqualTo(updatedSnapshot.hashCode());
@@ -82,7 +90,7 @@ public class FolderSnapshotTests {
 	}
 
 	@Test
-	public void notEqualsWhenAFileIsDeleted() throws Exception {
+	public void notEqualsWhenAFileIsDeleted() {
 		new File(new File(this.folder, "folder1"), "file1").delete();
 		FolderSnapshot updatedSnapshot = new FolderSnapshot(this.folder);
 		assertThat(this.initialSnapshot).isNotEqualTo(updatedSnapshot);
@@ -97,7 +105,7 @@ public class FolderSnapshotTests {
 	}
 
 	@Test
-	public void getChangedFilesSnapshotMustNotBeNull() throws Exception {
+	public void getChangedFilesSnapshotMustNotBeNull() {
 		this.thrown.expect(IllegalArgumentException.class);
 		this.thrown.expectMessage("Snapshot must not be null");
 		this.initialSnapshot.getChangedFiles(null, null);
@@ -112,7 +120,7 @@ public class FolderSnapshotTests {
 	}
 
 	@Test
-	public void getChangedFilesWhenNothingHasChanged() throws Exception {
+	public void getChangedFilesWhenNothingHasChanged() {
 		FolderSnapshot updatedSnapshot = new FolderSnapshot(this.folder);
 		this.initialSnapshot.getChangedFiles(updatedSnapshot, null);
 	}

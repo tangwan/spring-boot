@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,16 +17,21 @@
 package org.springframework.boot.autoconfigure.diagnostics.analyzer;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanFactoryAware;
+import org.springframework.beans.factory.BeanFactoryUtils;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
+import org.springframework.beans.factory.annotation.AnnotatedBeanDefinition;
+import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionEvaluationReport;
 import org.springframework.boot.autoconfigure.condition.ConditionEvaluationReport.ConditionAndOutcome;
@@ -78,18 +83,22 @@ class NoSuchBeanDefinitionFailureAnalyzer
 		}
 		List<AutoConfigurationResult> autoConfigurationResults = getAutoConfigurationResults(
 				cause);
+		List<UserConfigurationResult> userConfigurationResults = getUserConfigurationResults(
+				cause);
 		StringBuilder message = new StringBuilder();
 		message.append(String.format("%s required %s that could not be found.%n",
-				description == null ? "A component" : description,
+				(description != null) ? description : "A component",
 				getBeanDescription(cause)));
-		if (!autoConfigurationResults.isEmpty()) {
-			for (AutoConfigurationResult provider : autoConfigurationResults) {
-				message.append(String.format("\t- %s%n", provider));
-			}
+		for (AutoConfigurationResult result : autoConfigurationResults) {
+			message.append(String.format("\t- %s%n", result));
+		}
+		for (UserConfigurationResult result : userConfigurationResults) {
+			message.append(String.format("\t- %s%n", result));
 		}
 		String action = String.format("Consider %s %s in your configuration.",
 				(!autoConfigurationResults.isEmpty()
-						? "revisiting the conditions above or defining" : "defining"),
+						|| !userConfigurationResults.isEmpty())
+								? "revisiting the entries above or defining" : "defining",
 				getBeanDescription(cause));
 		return new FailureAnalysis(message.toString(), action, cause);
 	}
@@ -103,14 +112,6 @@ class NoSuchBeanDefinitionFailureAnalyzer
 	}
 
 	private Class<?> extractBeanType(ResolvableType resolvableType) {
-		ResolvableType collectionType = resolvableType.asCollection();
-		if (!collectionType.equals(ResolvableType.NONE)) {
-			return collectionType.getGeneric(0).getRawClass();
-		}
-		ResolvableType mapType = resolvableType.asMap();
-		if (!mapType.equals(ResolvableType.NONE)) {
-			return mapType.getGeneric(1).getRawClass();
-		}
 		return resolvableType.getRawClass();
 	}
 
@@ -122,21 +123,48 @@ class NoSuchBeanDefinitionFailureAnalyzer
 		return results;
 	}
 
+	private List<UserConfigurationResult> getUserConfigurationResults(
+			NoSuchBeanDefinitionException cause) {
+		ResolvableType type = cause.getResolvableType();
+		if (type == null) {
+			return Collections.emptyList();
+		}
+		String[] beanNames = BeanFactoryUtils
+				.beanNamesForTypeIncludingAncestors(this.beanFactory, type);
+		return Arrays.stream(beanNames)
+				.map((beanName) -> new UserConfigurationResult(
+						getFactoryMethodMetadata(beanName),
+						this.beanFactory.getBean(beanName).equals(null)))
+				.collect(Collectors.toList());
+	}
+
+	private MethodMetadata getFactoryMethodMetadata(String beanName) {
+		BeanDefinition beanDefinition = this.beanFactory.getBeanDefinition(beanName);
+		if (beanDefinition instanceof AnnotatedBeanDefinition) {
+			return ((AnnotatedBeanDefinition) beanDefinition).getFactoryMethodMetadata();
+		}
+		return null;
+	}
+
 	private void collectReportedConditionOutcomes(NoSuchBeanDefinitionException cause,
 			List<AutoConfigurationResult> results) {
-		for (Map.Entry<String, ConditionAndOutcomes> entry : this.report
-				.getConditionAndOutcomesBySource().entrySet()) {
-			Source source = new Source(entry.getKey());
-			ConditionAndOutcomes conditionAndOutcomes = entry.getValue();
-			if (!conditionAndOutcomes.isFullMatch()) {
-				BeanMethods methods = new BeanMethods(source, cause);
-				for (ConditionAndOutcome conditionAndOutcome : conditionAndOutcomes) {
-					if (!conditionAndOutcome.getOutcome().isMatch()) {
-						for (MethodMetadata method : methods) {
-							results.add(new AutoConfigurationResult(method,
-									conditionAndOutcome.getOutcome(), source.isMethod()));
-						}
-					}
+		this.report.getConditionAndOutcomesBySource().forEach(
+				(source, sourceOutcomes) -> collectReportedConditionOutcomes(cause,
+						new Source(source), sourceOutcomes, results));
+	}
+
+	private void collectReportedConditionOutcomes(NoSuchBeanDefinitionException cause,
+			Source source, ConditionAndOutcomes sourceOutcomes,
+			List<AutoConfigurationResult> results) {
+		if (sourceOutcomes.isFullMatch()) {
+			return;
+		}
+		BeanMethods methods = new BeanMethods(source, cause);
+		for (ConditionAndOutcome conditionAndOutcome : sourceOutcomes) {
+			if (!conditionAndOutcome.getOutcome().isMatch()) {
+				for (MethodMetadata method : methods) {
+					results.add(new AutoConfigurationResult(method,
+							conditionAndOutcome.getOutcome(), source.isMethod()));
 				}
 			}
 		}
@@ -164,8 +192,8 @@ class NoSuchBeanDefinitionFailureAnalyzer
 
 		Source(String source) {
 			String[] tokens = source.split("#");
-			this.className = (tokens.length > 1 ? tokens[0] : source);
-			this.methodName = (tokens.length == 2 ? tokens[1] : null);
+			this.className = (tokens.length > 1) ? tokens[0] : source;
+			this.methodName = (tokens.length != 2) ? null : tokens[1];
 		}
 
 		public String getClassName() {
@@ -225,8 +253,8 @@ class NoSuchBeanDefinitionFailureAnalyzer
 		private boolean hasName(MethodMetadata methodMetadata, String name) {
 			Map<String, Object> attributes = methodMetadata
 					.getAnnotationAttributes(Bean.class.getName());
-			String[] candidates = (attributes == null ? null
-					: (String[]) attributes.get("name"));
+			String[] candidates = (attributes != null) ? (String[]) attributes.get("name")
+					: null;
 			if (candidates != null) {
 				for (String candidate : candidates) {
 					if (candidate.equals(name)) {
@@ -288,6 +316,33 @@ class NoSuchBeanDefinitionFailureAnalyzer
 			return String.format("Bean method '%s' not loaded because %s",
 					this.methodMetadata.getMethodName(),
 					this.conditionOutcome.getMessage());
+		}
+
+	}
+
+	private static class UserConfigurationResult {
+
+		private final MethodMetadata methodMetadata;
+
+		private final boolean nullBean;
+
+		UserConfigurationResult(MethodMetadata methodMetadata, boolean nullBean) {
+			this.methodMetadata = methodMetadata;
+			this.nullBean = nullBean;
+		}
+
+		@Override
+		public String toString() {
+			StringBuilder sb = new StringBuilder("User-defined bean");
+			if (this.methodMetadata != null) {
+				sb.append(String.format(" method '%s' in '%s'",
+						this.methodMetadata.getMethodName(), ClassUtils.getShortName(
+								this.methodMetadata.getDeclaringClassName())));
+			}
+			if (this.nullBean) {
+				sb.append(" ignored as the bean value is null");
+			}
+			return sb.toString();
 		}
 
 	}

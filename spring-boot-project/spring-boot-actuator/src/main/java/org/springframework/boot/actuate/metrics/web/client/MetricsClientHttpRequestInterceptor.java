@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ import java.util.concurrent.TimeUnit;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
-import io.micrometer.core.instrument.stats.hist.Histogram;
 
 import org.springframework.core.NamedThreadLocal;
 import org.springframework.http.HttpRequest;
@@ -51,15 +50,11 @@ class MetricsClientHttpRequestInterceptor implements ClientHttpRequestIntercepto
 
 	private final String metricName;
 
-	private final boolean recordPercentiles;
-
 	MetricsClientHttpRequestInterceptor(MeterRegistry meterRegistry,
-			RestTemplateExchangeTagsProvider tagProvider, String metricName,
-			boolean recordPercentiles) {
+			RestTemplateExchangeTagsProvider tagProvider, String metricName) {
 		this.tagProvider = tagProvider;
 		this.meterRegistry = meterRegistry;
 		this.metricName = metricName;
-		this.recordPercentiles = recordPercentiles;
 	}
 
 	@Override
@@ -98,13 +93,9 @@ class MetricsClientHttpRequestInterceptor implements ClientHttpRequestIntercepto
 
 	private Timer.Builder getTimeBuilder(HttpRequest request,
 			ClientHttpResponse response) {
-		Timer.Builder builder = Timer.builder(this.metricName)
+		return Timer.builder(this.metricName)
 				.tags(this.tagProvider.getTags(urlTemplate.get(), request, response))
 				.description("Timer of RestTemplate operation");
-		if (this.recordPercentiles) {
-			builder = builder.histogram(Histogram.percentilesTime());
-		}
-		return builder;
 	}
 
 }

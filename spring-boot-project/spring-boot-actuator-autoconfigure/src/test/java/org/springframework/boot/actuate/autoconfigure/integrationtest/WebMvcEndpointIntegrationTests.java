@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,24 +16,35 @@
 
 package org.springframework.boot.actuate.autoconfigure.integrationtest;
 
+import java.util.function.Supplier;
+
+import javax.servlet.http.HttpServlet;
+
 import org.junit.After;
 import org.junit.Test;
 
 import org.springframework.boot.actuate.autoconfigure.audit.AuditAutoConfiguration;
 import org.springframework.boot.actuate.autoconfigure.beans.BeansEndpointAutoConfiguration;
 import org.springframework.boot.actuate.autoconfigure.endpoint.EndpointAutoConfiguration;
+import org.springframework.boot.actuate.autoconfigure.endpoint.web.WebEndpointAutoConfiguration;
 import org.springframework.boot.actuate.autoconfigure.web.server.ManagementContextAutoConfiguration;
 import org.springframework.boot.actuate.autoconfigure.web.servlet.ServletManagementContextAutoConfiguration;
+import org.springframework.boot.actuate.endpoint.web.EndpointServlet;
+import org.springframework.boot.actuate.endpoint.web.annotation.ControllerEndpoint;
+import org.springframework.boot.actuate.endpoint.web.annotation.RestControllerEndpoint;
+import org.springframework.boot.actuate.endpoint.web.annotation.ServletEndpoint;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.autoconfigure.context.PropertyPlaceholderAutoConfiguration;
 import org.springframework.boot.autoconfigure.data.rest.RepositoryRestMvcAutoConfiguration;
 import org.springframework.boot.autoconfigure.hateoas.HypermediaAutoConfiguration;
 import org.springframework.boot.autoconfigure.http.HttpMessageConvertersAutoConfiguration;
 import org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration;
-import org.springframework.boot.autoconfigure.security.SecurityAutoConfiguration;
+import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 import org.springframework.boot.autoconfigure.web.servlet.DispatcherServletAutoConfiguration;
 import org.springframework.boot.autoconfigure.web.servlet.WebMvcAutoConfiguration;
 import org.springframework.boot.test.util.TestPropertyValues;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockServletContext;
@@ -45,8 +56,11 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.test.web.servlet.setup.MockMvcConfigurer;
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
 
+import static org.hamcrest.Matchers.both;
+import static org.hamcrest.Matchers.hasKey;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -69,7 +83,7 @@ public class WebMvcEndpointIntegrationTests {
 		this.context = new AnnotationConfigWebApplicationContext();
 		this.context.register(SecureConfiguration.class);
 		MockMvc mockMvc = createSecureMockMvc();
-		mockMvc.perform(get("/application/beans").accept(MediaType.APPLICATION_JSON))
+		mockMvc.perform(get("/actuator/beans").accept(MediaType.APPLICATION_JSON))
 				.andExpect(status().isUnauthorized());
 	}
 
@@ -90,10 +104,24 @@ public class WebMvcEndpointIntegrationTests {
 				new TestingAuthenticationToken("user", "N/A", "ROLE_ACTUATOR"));
 		this.context = new AnnotationConfigWebApplicationContext();
 		this.context.register(SecureConfiguration.class);
-		TestPropertyValues.of("management.endpoints.web.base-path:/management",
-				"endpoints.default.web.enabled=true").applyTo(this.context);
+		TestPropertyValues
+				.of("management.endpoints.web.base-path:/management",
+						"management.endpoints.web.exposure.include=*")
+				.applyTo(this.context);
 		MockMvc mockMvc = createSecureMockMvc();
 		mockMvc.perform(get("/management/beans")).andExpect(status().isOk());
+	}
+
+	@Test
+	public void linksAreProvidedToAllEndpointTypes() throws Exception {
+		this.context = new AnnotationConfigWebApplicationContext();
+		this.context.register(DefaultConfiguration.class, EndpointsConfiguration.class);
+		TestPropertyValues.of("management.endpoints.web.exposure.include=*")
+				.applyTo(this.context);
+		MockMvc mockMvc = doCreateMockMvc();
+		mockMvc.perform(get("/actuator").accept("*/*")).andExpect(status().isOk())
+				.andExpect(jsonPath("_links", both(hasKey("beans")).and(hasKey("servlet"))
+						.and(hasKey("restcontroller")).and(hasKey("controller"))));
 	}
 
 	private MockMvc createSecureMockMvc() {
@@ -112,6 +140,7 @@ public class WebMvcEndpointIntegrationTests {
 
 	@ImportAutoConfiguration({ JacksonAutoConfiguration.class,
 			HttpMessageConvertersAutoConfiguration.class, EndpointAutoConfiguration.class,
+			WebEndpointAutoConfiguration.class,
 			ServletManagementContextAutoConfiguration.class, AuditAutoConfiguration.class,
 			PropertyPlaceholderAutoConfiguration.class, WebMvcAutoConfiguration.class,
 			ManagementContextAutoConfiguration.class, AuditAutoConfiguration.class,
@@ -137,6 +166,47 @@ public class WebMvcEndpointIntegrationTests {
 	@Import(DefaultConfiguration.class)
 	@ImportAutoConfiguration({ SecurityAutoConfiguration.class })
 	static class SecureConfiguration {
+
+	}
+
+	@ServletEndpoint(id = "servlet")
+	static class TestServletEndpoint implements Supplier<EndpointServlet> {
+
+		@Override
+		public EndpointServlet get() {
+			return new EndpointServlet(new HttpServlet() {
+			});
+		}
+
+	}
+
+	@ControllerEndpoint(id = "controller")
+	static class TestControllerEndpoint {
+
+	}
+
+	@RestControllerEndpoint(id = "restcontroller")
+	static class TestRestControllerEndpoint {
+
+	}
+
+	@Configuration
+	static class EndpointsConfiguration {
+
+		@Bean
+		TestServletEndpoint testServletEndpoint() {
+			return new TestServletEndpoint();
+		}
+
+		@Bean
+		TestControllerEndpoint testControllerEndpoint() {
+			return new TestControllerEndpoint();
+		}
+
+		@Bean
+		TestRestControllerEndpoint testRestControllerEndpoint() {
+			return new TestRestControllerEndpoint();
+		}
 
 	}
 

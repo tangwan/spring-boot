@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,19 @@
 
 package org.springframework.boot.web.embedded.jetty;
 
+import java.net.InetAddress;
 import java.nio.charset.Charset;
+import java.time.Duration;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
+
+import javax.servlet.ServletContextEvent;
+import javax.servlet.ServletContextListener;
 
 import org.apache.jasper.servlet.JspServlet;
+import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
@@ -39,6 +45,7 @@ import org.mockito.InOrder;
 
 import org.springframework.boot.web.server.PortInUseException;
 import org.springframework.boot.web.server.Ssl;
+import org.springframework.boot.web.server.WebServerException;
 import org.springframework.boot.web.servlet.server.AbstractServletWebServerFactory;
 import org.springframework.boot.web.servlet.server.AbstractServletWebServerFactoryTests;
 
@@ -68,9 +75,7 @@ public class JettyServletWebServerFactoryTests
 	public void jettyConfigurations() throws Exception {
 		JettyServletWebServerFactory factory = getFactory();
 		Configuration[] configurations = new Configuration[4];
-		for (int i = 0; i < configurations.length; i++) {
-			configurations[i] = mock(Configuration.class);
-		}
+		Arrays.setAll(configurations, (i) -> mock(Configuration.class));
 		factory.setConfigurations(Arrays.asList(configurations[0], configurations[1]));
 		factory.addConfigurations(configurations[2], configurations[3]);
 		this.webServer = factory.getWebServer();
@@ -81,12 +86,10 @@ public class JettyServletWebServerFactoryTests
 	}
 
 	@Test
-	public void jettyCustomizations() throws Exception {
+	public void jettyCustomizations() {
 		JettyServletWebServerFactory factory = getFactory();
 		JettyServerCustomizer[] configurations = new JettyServerCustomizer[4];
-		for (int i = 0; i < configurations.length; i++) {
-			configurations[i] = mock(JettyServerCustomizer.class);
-		}
+		Arrays.setAll(configurations, (i) -> mock(JettyServerCustomizer.class));
 		factory.setServerCustomizers(Arrays.asList(configurations[0], configurations[1]));
 		factory.addServerCustomizers(configurations[2], configurations[3]);
 		this.webServer = factory.getWebServer();
@@ -97,21 +100,21 @@ public class JettyServletWebServerFactoryTests
 	}
 
 	@Test
-	public void sessionTimeout() throws Exception {
+	public void sessionTimeout() {
 		JettyServletWebServerFactory factory = getFactory();
-		factory.setSessionTimeout(10);
+		factory.getSession().setTimeout(Duration.ofSeconds(10));
 		assertTimeout(factory, 10);
 	}
 
 	@Test
-	public void sessionTimeoutInMins() throws Exception {
+	public void sessionTimeoutInMins() {
 		JettyServletWebServerFactory factory = getFactory();
-		factory.setSessionTimeout(1, TimeUnit.MINUTES);
+		factory.getSession().setTimeout(Duration.ofMinutes(1));
 		assertTimeout(factory, 60);
 	}
 
 	@Test
-	public void sslCiphersConfiguration() throws Exception {
+	public void sslCiphersConfiguration() {
 		Ssl ssl = new Ssl();
 		ssl.setKeyStore("src/test/resources/test.jks");
 		ssl.setKeyStorePassword("secret");
@@ -136,7 +139,7 @@ public class JettyServletWebServerFactoryTests
 	}
 
 	@Test
-	public void stopCalledWithoutStart() throws Exception {
+	public void stopCalledWithoutStart() {
 		JettyServletWebServerFactory factory = getFactory();
 		this.webServer = factory.getWebServer(exampleServletRegistration());
 		this.webServer.stop();
@@ -154,53 +157,43 @@ public class JettyServletWebServerFactoryTests
 	}
 
 	@Test
-	public void sslEnabledMultiProtocolsConfiguration() throws Exception {
-		Ssl ssl = new Ssl();
-		ssl.setKeyStore("src/test/resources/test.jks");
-		ssl.setKeyStorePassword("secret");
-		ssl.setKeyPassword("password");
-		ssl.setCiphers(new String[] { "ALPHA", "BRAVO", "CHARLIE" });
-		ssl.setEnabledProtocols(new String[] { "TLSv1.1", "TLSv1.2" });
-
+	public void sslEnabledMultiProtocolsConfiguration() {
 		JettyServletWebServerFactory factory = getFactory();
-		factory.setSsl(ssl);
-
+		factory.setSsl(getSslSettings("TLSv1.1", "TLSv1.2"));
 		this.webServer = factory.getWebServer();
 		this.webServer.start();
-
 		JettyWebServer jettyWebServer = (JettyWebServer) this.webServer;
 		ServerConnector connector = (ServerConnector) jettyWebServer.getServer()
 				.getConnectors()[0];
 		SslConnectionFactory connectionFactory = connector
 				.getConnectionFactory(SslConnectionFactory.class);
-
 		assertThat(connectionFactory.getSslContextFactory().getIncludeProtocols())
-				.isEqualTo(new String[] { "TLSv1.1", "TLSv1.2" });
+				.containsExactly("TLSv1.1", "TLSv1.2");
 	}
 
 	@Test
-	public void sslEnabledProtocolsConfiguration() throws Exception {
-		Ssl ssl = new Ssl();
-		ssl.setKeyStore("src/test/resources/test.jks");
-		ssl.setKeyStorePassword("secret");
-		ssl.setKeyPassword("password");
-		ssl.setCiphers(new String[] { "ALPHA", "BRAVO", "CHARLIE" });
-		ssl.setEnabledProtocols(new String[] { "TLSv1.1" });
-
+	public void sslEnabledProtocolsConfiguration() {
 		JettyServletWebServerFactory factory = getFactory();
-		factory.setSsl(ssl);
-
+		factory.setSsl(getSslSettings("TLSv1.1"));
 		this.webServer = factory.getWebServer();
 		this.webServer.start();
-
 		JettyWebServer jettyWebServer = (JettyWebServer) this.webServer;
 		ServerConnector connector = (ServerConnector) jettyWebServer.getServer()
 				.getConnectors()[0];
 		SslConnectionFactory connectionFactory = connector
 				.getConnectionFactory(SslConnectionFactory.class);
-
 		assertThat(connectionFactory.getSslContextFactory().getIncludeProtocols())
-				.isEqualTo(new String[] { "TLSv1.1" });
+				.containsExactly("TLSv1.1");
+	}
+
+	private Ssl getSslSettings(String... enabledProtocols) {
+		Ssl ssl = new Ssl();
+		ssl.setKeyStore("src/test/resources/test.jks");
+		ssl.setKeyStorePassword("secret");
+		ssl.setKeyPassword("password");
+		ssl.setCiphers(new String[] { "ALPHA", "BRAVO", "CHARLIE" });
+		ssl.setEnabledProtocols(enabledProtocols);
+		return ssl;
 	}
 
 	private void assertTimeout(JettyServletWebServerFactory factory, int expected) {
@@ -242,7 +235,7 @@ public class JettyServletWebServerFactoryTests
 	}
 
 	@Test
-	public void defaultThreadPool() throws Exception {
+	public void defaultThreadPool() {
 		JettyServletWebServerFactory factory = getFactory();
 		factory.setThreadPool(null);
 		assertThat(factory.getThreadPool()).isNull();
@@ -252,7 +245,7 @@ public class JettyServletWebServerFactoryTests
 	}
 
 	@Test
-	public void customThreadPool() throws Exception {
+	public void customThreadPool() {
 		JettyServletWebServerFactory factory = getFactory();
 		ThreadPool threadPool = mock(ThreadPool.class);
 		factory.setThreadPool(threadPool);
@@ -262,7 +255,7 @@ public class JettyServletWebServerFactoryTests
 	}
 
 	@Test
-	public void startFailsWhenThreadPoolIsTooSmall() throws Exception {
+	public void startFailsWhenThreadPoolIsTooSmall() {
 		JettyServletWebServerFactory factory = getFactory();
 		factory.addServerCustomizers((server) -> {
 			QueuedThreadPool threadPool = server.getBean(QueuedThreadPool.class);
@@ -271,6 +264,73 @@ public class JettyServletWebServerFactoryTests
 		});
 		this.thrown.expectCause(isA(IllegalStateException.class));
 		factory.getWebServer().start();
+	}
+
+	@Test
+	public void specificIPAddressNotReverseResolved() throws Exception {
+		JettyServletWebServerFactory factory = getFactory();
+		InetAddress localhost = InetAddress.getLocalHost();
+		factory.setAddress(InetAddress.getByAddress(localhost.getAddress()));
+		this.webServer = factory.getWebServer();
+		this.webServer.start();
+		Connector connector = ((JettyWebServer) this.webServer).getServer()
+				.getConnectors()[0];
+		assertThat(((ServerConnector) connector).getHost())
+				.isEqualTo(localhost.getHostAddress());
+	}
+
+	@Test
+	public void specificIPAddressWithSslIsNotReverseResolved() throws Exception {
+		JettyServletWebServerFactory factory = getFactory();
+		InetAddress localhost = InetAddress.getLocalHost();
+		factory.setAddress(InetAddress.getByAddress(localhost.getAddress()));
+		Ssl ssl = new Ssl();
+		ssl.setKeyStore("src/test/resources/test.jks");
+		ssl.setKeyStorePassword("secret");
+		ssl.setKeyPassword("password");
+		factory.setSsl(ssl);
+		this.webServer = factory.getWebServer();
+		this.webServer.start();
+		Connector connector = ((JettyWebServer) this.webServer).getServer()
+				.getConnectors()[0];
+		assertThat(((ServerConnector) connector).getHost())
+				.isEqualTo(localhost.getHostAddress());
+	}
+
+	@Test
+	public void faultyListenerCausesStartFailure() throws Exception {
+		JettyServletWebServerFactory factory = getFactory();
+		factory.addServerCustomizers(new JettyServerCustomizer() {
+
+			@Override
+			public void customize(Server server) {
+				Collection<WebAppContext> contexts = server.getBeans(WebAppContext.class);
+				contexts.iterator().next().addEventListener(new ServletContextListener() {
+
+					@Override
+					public void contextInitialized(ServletContextEvent sce) {
+						throw new RuntimeException();
+					}
+
+					@Override
+					public void contextDestroyed(ServletContextEvent sce) {
+
+					}
+
+				});
+			}
+
+		});
+		this.thrown.expect(WebServerException.class);
+		JettyWebServer jettyWebServer = (JettyWebServer) factory.getWebServer();
+		try {
+			jettyWebServer.start();
+		}
+		finally {
+			QueuedThreadPool threadPool = (QueuedThreadPool) jettyWebServer.getServer()
+					.getThreadPool();
+			assertThat(threadPool.isRunning()).isFalse();
+		}
 	}
 
 	@Override
@@ -282,6 +342,7 @@ public class JettyServletWebServerFactoryTests
 			return null;
 		}
 		holder.start();
+		holder.initialize();
 		return (JspServlet) holder.getServlet();
 	}
 

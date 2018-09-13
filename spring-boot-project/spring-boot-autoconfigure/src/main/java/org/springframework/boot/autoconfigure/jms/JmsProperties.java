@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
 
 package org.springframework.boot.autoconfigure.jms;
 
+import java.time.Duration;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -29,7 +31,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class JmsProperties {
 
 	/**
-	 * Specify if the default destination type is topic.
+	 * Whether the default destination type is topic.
 	 */
 	private boolean pubSubDomain = false;
 
@@ -38,6 +40,8 @@ public class JmsProperties {
 	 * factory auto-configurations.
 	 */
 	private String jndiName;
+
+	private final Cache cache = new Cache();
 
 	private final Listener listener = new Listener();
 
@@ -59,12 +63,72 @@ public class JmsProperties {
 		this.jndiName = jndiName;
 	}
 
+	public Cache getCache() {
+		return this.cache;
+	}
+
 	public Listener getListener() {
 		return this.listener;
 	}
 
 	public Template getTemplate() {
 		return this.template;
+	}
+
+	public static class Cache {
+
+		/**
+		 * Whether to cache sessions.
+		 */
+		private boolean enabled = true;
+
+		/**
+		 * Whether to cache message consumers.
+		 */
+		private boolean consumers = false;
+
+		/**
+		 * Whether to cache message producers.
+		 */
+		private boolean producers = true;
+
+		/**
+		 * Size of the session cache (per JMS Session type).
+		 */
+		private int sessionCacheSize = 1;
+
+		public boolean isEnabled() {
+			return this.enabled;
+		}
+
+		public void setEnabled(boolean enabled) {
+			this.enabled = enabled;
+		}
+
+		public boolean isConsumers() {
+			return this.consumers;
+		}
+
+		public void setConsumers(boolean consumers) {
+			this.consumers = consumers;
+		}
+
+		public boolean isProducers() {
+			return this.producers;
+		}
+
+		public void setProducers(boolean producers) {
+			this.producers = producers;
+		}
+
+		public int getSessionCacheSize() {
+			return this.sessionCacheSize;
+		}
+
+		public void setSessionCacheSize(int sessionCacheSize) {
+			this.sessionCacheSize = sessionCacheSize;
+		}
+
 	}
 
 	public static class Listener {
@@ -124,9 +188,9 @@ public class JmsProperties {
 
 		public String formatConcurrency() {
 			if (this.concurrency == null) {
-				return (this.maxConcurrency != null ? "1-" + this.maxConcurrency : null);
+				return (this.maxConcurrency != null) ? "1-" + this.maxConcurrency : null;
 			}
-			return (this.maxConcurrency != null
+			return ((this.maxConcurrency != null)
 					? this.concurrency + "-" + this.maxConcurrency
 					: String.valueOf(this.concurrency));
 		}
@@ -136,42 +200,44 @@ public class JmsProperties {
 	public static class Template {
 
 		/**
-		 * Default destination to use on send/receive operations that do not have a
+		 * Default destination to use on send and receive operations that do not have a
 		 * destination parameter.
 		 */
 		private String defaultDestination;
 
 		/**
-		 * Delivery delay to use for send calls in milliseconds.
+		 * Delivery delay to use for send calls.
 		 */
-		private Long deliveryDelay;
+		private Duration deliveryDelay;
 
 		/**
-		 * Delivery mode. Enable QoS when set.
+		 * Delivery mode. Enables QoS (Quality of Service) when set.
 		 */
 		private DeliveryMode deliveryMode;
 
 		/**
-		 * Priority of a message when sending. Enable QoS when set.
+		 * Priority of a message when sending. Enables QoS (Quality of Service) when set.
 		 */
 		private Integer priority;
 
 		/**
-		 * Time-to-live of a message when sending in milliseconds. Enable QoS when set.
+		 * Time-to-live of a message when sending. Enables QoS (Quality of Service) when
+		 * set.
 		 */
-		private Long timeToLive;
+		private Duration timeToLive;
 
 		/**
-		 * Enable explicit QoS when sending a message. When enabled, the delivery mode,
-		 * priority and time-to-live properties will be used when sending a message. QoS
-		 * is automatically enabled when at least one of those settings is customized.
+		 * Whether to enable explicit QoS (Quality of Service) when sending a message.
+		 * When enabled, the delivery mode, priority and time-to-live properties will be
+		 * used when sending a message. QoS is automatically enabled when at least one of
+		 * those settings is customized.
 		 */
 		private Boolean qosEnabled;
 
 		/**
-		 * Timeout to use for receive calls in milliseconds.
+		 * Timeout to use for receive calls.
 		 */
-		private Long receiveTimeout;
+		private Duration receiveTimeout;
 
 		public String getDefaultDestination() {
 			return this.defaultDestination;
@@ -181,11 +247,11 @@ public class JmsProperties {
 			this.defaultDestination = defaultDestination;
 		}
 
-		public Long getDeliveryDelay() {
+		public Duration getDeliveryDelay() {
 			return this.deliveryDelay;
 		}
 
-		public void setDeliveryDelay(Long deliveryDelay) {
+		public void setDeliveryDelay(Duration deliveryDelay) {
 			this.deliveryDelay = deliveryDelay;
 		}
 
@@ -205,11 +271,11 @@ public class JmsProperties {
 			this.priority = priority;
 		}
 
-		public Long getTimeToLive() {
+		public Duration getTimeToLive() {
 			return this.timeToLive;
 		}
 
-		public void setTimeToLive(Long timeToLive) {
+		public void setTimeToLive(Duration timeToLive) {
 			this.timeToLive = timeToLive;
 		}
 
@@ -229,11 +295,11 @@ public class JmsProperties {
 			this.qosEnabled = qosEnabled;
 		}
 
-		public Long getReceiveTimeout() {
+		public Duration getReceiveTimeout() {
 			return this.receiveTimeout;
 		}
 
-		public void setReceiveTimeout(Long receiveTimeout) {
+		public void setReceiveTimeout(Duration receiveTimeout) {
 			this.receiveTimeout = receiveTimeout;
 		}
 

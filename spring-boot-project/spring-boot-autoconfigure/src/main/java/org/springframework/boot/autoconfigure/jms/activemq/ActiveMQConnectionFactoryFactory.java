@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,8 +48,8 @@ class ActiveMQConnectionFactoryFactory {
 			List<ActiveMQConnectionFactoryCustomizer> factoryCustomizers) {
 		Assert.notNull(properties, "Properties must not be null");
 		this.properties = properties;
-		this.factoryCustomizers = (factoryCustomizers != null ? factoryCustomizers
-				: Collections.<ActiveMQConnectionFactoryCustomizer>emptyList());
+		this.factoryCustomizers = (factoryCustomizers != null) ? factoryCustomizers
+				: Collections.emptyList();
 	}
 
 	public <T extends ActiveMQConnectionFactory> T createConnectionFactory(
@@ -66,9 +66,13 @@ class ActiveMQConnectionFactoryFactory {
 	private <T extends ActiveMQConnectionFactory> T doCreateConnectionFactory(
 			Class<T> factoryClass) throws Exception {
 		T factory = createConnectionFactoryInstance(factoryClass);
-		factory.setCloseTimeout(this.properties.getCloseTimeout());
+		if (this.properties.getCloseTimeout() != null) {
+			factory.setCloseTimeout((int) this.properties.getCloseTimeout().toMillis());
+		}
 		factory.setNonBlockingRedelivery(this.properties.isNonBlockingRedelivery());
-		factory.setSendTimeout(this.properties.getSendTimeout());
+		if (this.properties.getSendTimeout() != null) {
+			factory.setSendTimeout((int) this.properties.getSendTimeout().toMillis());
+		}
 		Packages packages = this.properties.getPackages();
 		if (packages.getTrustAll() != null) {
 			factory.setTrustAllPackages(packages.getTrustAll());
@@ -82,7 +86,7 @@ class ActiveMQConnectionFactoryFactory {
 
 	private <T extends ActiveMQConnectionFactory> T createConnectionFactoryInstance(
 			Class<T> factoryClass) throws InstantiationException, IllegalAccessException,
-					InvocationTargetException, NoSuchMethodException {
+			InvocationTargetException, NoSuchMethodException {
 		String brokerUrl = determineBrokerUrl();
 		String user = this.properties.getUser();
 		String password = this.properties.getPassword();

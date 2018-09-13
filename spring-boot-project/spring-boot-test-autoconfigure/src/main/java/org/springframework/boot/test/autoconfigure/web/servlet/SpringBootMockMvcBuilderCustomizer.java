@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,9 +28,11 @@ import javax.servlet.Filter;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.boot.web.servlet.DelegatingFilterProxyRegistrationBean;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.boot.web.servlet.RegistrationBean;
 import org.springframework.boot.web.servlet.ServletContextInitializer;
 import org.springframework.boot.web.servlet.ServletContextInitializerBeans;
 import org.springframework.context.ApplicationContext;
@@ -41,6 +43,7 @@ import org.springframework.test.web.servlet.result.PrintingResultHandler;
 import org.springframework.test.web.servlet.setup.ConfigurableMockMvcBuilder;
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 import org.springframework.web.context.WebApplicationContext;
 
 /**
@@ -105,9 +108,8 @@ public class SpringBootMockMvcBuilderCustomizer implements MockMvcBuilderCustomi
 	}
 
 	private void addFilters(ConfigurableMockMvcBuilder<?> builder) {
-		ServletContextInitializerBeans Initializers = new ServletContextInitializerBeans(
-				this.context);
-		for (ServletContextInitializer initializer : Initializers) {
+		FilterRegistrationBeans initializers = new FilterRegistrationBeans(this.context);
+		for (ServletContextInitializer initializer : initializers) {
 			if (initializer instanceof FilterRegistrationBean) {
 				addFilter(builder, (FilterRegistrationBean<?>) initializer);
 			}
@@ -133,7 +135,7 @@ public class SpringBootMockMvcBuilderCustomizer implements MockMvcBuilderCustomi
 			builder.addFilters(filter);
 		}
 		else {
-			builder.addFilter(filter, urls.toArray(new String[urls.size()]));
+			builder.addFilter(filter, StringUtils.toStringArray(urls));
 		}
 	}
 
@@ -314,6 +316,35 @@ public class SpringBootMockMvcBuilderCustomizer implements MockMvcBuilderCustomi
 				return System.err;
 			}
 			return System.out;
+		}
+
+	}
+
+	private static class FilterRegistrationBeans extends ServletContextInitializerBeans {
+
+		FilterRegistrationBeans(ListableBeanFactory beanFactory) {
+			super(beanFactory, FilterRegistrationBean.class,
+					DelegatingFilterProxyRegistrationBean.class);
+		}
+
+		@Override
+		protected void addAdaptableBeans(ListableBeanFactory beanFactory) {
+			addAsRegistrationBean(beanFactory, Filter.class,
+					new FilterRegistrationBeanAdapter());
+		}
+
+		private static class FilterRegistrationBeanAdapter
+				implements RegistrationBeanAdapter<Filter> {
+
+			@Override
+			public RegistrationBean createRegistrationBean(String name, Filter source,
+					int totalNumberOfSourceBeans) {
+				FilterRegistrationBean<Filter> bean = new FilterRegistrationBean<>(
+						source);
+				bean.setName(name);
+				return bean;
+			}
+
 		}
 
 	}

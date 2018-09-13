@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ import org.springframework.boot.actuate.health.HealthEndpoint;
 import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.boot.actuate.health.ReactiveHealthIndicator;
 import org.springframework.boot.actuate.health.Status;
-import org.springframework.boot.actuate.health.StatusEndpoint;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
@@ -33,6 +32,7 @@ import org.springframework.context.annotation.Configuration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -46,16 +46,33 @@ public class HealthEndpointAutoConfigurationTests {
 
 	private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
 			.withConfiguration(
-					AutoConfigurations.of(HealthEndpointAutoConfiguration.class));
+					AutoConfigurations.of(HealthIndicatorAutoConfiguration.class,
+							HealthEndpointAutoConfiguration.class));
 
 	@Test
-	public void healthEndpointAdaptReactiveHealthIndicator() {
+	public void healthEndpointShowDetailsDefault() {
 		this.contextRunner
 				.withUserConfiguration(ReactiveHealthIndicatorConfiguration.class)
 				.run((context) -> {
 					ReactiveHealthIndicator indicator = context.getBean(
 							"reactiveHealthIndicator", ReactiveHealthIndicator.class);
-					verify(indicator, times(0)).health();
+					verify(indicator, never()).health();
+					Health health = context.getBean(HealthEndpoint.class).health();
+					assertThat(health.getStatus()).isEqualTo(Status.UP);
+					assertThat(health.getDetails()).isNotEmpty();
+					verify(indicator, times(1)).health();
+				});
+	}
+
+	@Test
+	public void healthEndpointAdaptReactiveHealthIndicator() {
+		this.contextRunner
+				.withPropertyValues("management.endpoint.health.show-details=always")
+				.withUserConfiguration(ReactiveHealthIndicatorConfiguration.class)
+				.run((context) -> {
+					ReactiveHealthIndicator indicator = context.getBean(
+							"reactiveHealthIndicator", ReactiveHealthIndicator.class);
+					verify(indicator, never()).health();
 					Health health = context.getBean(HealthEndpoint.class).health();
 					assertThat(health.getStatus()).isEqualTo(Status.UP);
 					assertThat(health.getDetails()).containsOnlyKeys("reactive");
@@ -65,14 +82,17 @@ public class HealthEndpointAutoConfigurationTests {
 
 	@Test
 	public void healthEndpointMergeRegularAndReactive() {
-		this.contextRunner.withUserConfiguration(HealthIndicatorConfiguration.class,
-				ReactiveHealthIndicatorConfiguration.class).run((context) -> {
+		this.contextRunner
+				.withPropertyValues("management.endpoint.health.show-details=always")
+				.withUserConfiguration(HealthIndicatorConfiguration.class,
+						ReactiveHealthIndicatorConfiguration.class)
+				.run((context) -> {
 					HealthIndicator indicator = context.getBean("simpleHealthIndicator",
 							HealthIndicator.class);
 					ReactiveHealthIndicator reactiveHealthIndicator = context.getBean(
 							"reactiveHealthIndicator", ReactiveHealthIndicator.class);
-					verify(indicator, times(0)).health();
-					verify(reactiveHealthIndicator, times(0)).health();
+					verify(indicator, never()).health();
+					verify(reactiveHealthIndicator, never()).health();
 					Health health = context.getBean(HealthEndpoint.class).health();
 					assertThat(health.getStatus()).isEqualTo(Status.UP);
 					assertThat(health.getDetails()).containsOnlyKeys("simple",
@@ -80,19 +100,6 @@ public class HealthEndpointAutoConfigurationTests {
 					verify(indicator, times(1)).health();
 					verify(reactiveHealthIndicator, times(1)).health();
 				});
-	}
-
-	@Test
-	public void runShouldHaveStatusEndpointBeanEvenIfDefaultIsDisabled() {
-		this.contextRunner.withPropertyValues("endpoints.default.enabled:false").run(
-				(context) -> assertThat(context).hasSingleBean(StatusEndpoint.class));
-	}
-
-	@Test
-	public void runWhenEnabledPropertyIsFalseShouldNotHaveStatusEndpointBean()
-			throws Exception {
-		this.contextRunner.withPropertyValues("endpoints.status.enabled:false").run(
-				(context) -> assertThat(context).doesNotHaveBean(StatusEndpoint.class));
 	}
 
 	@Configuration
@@ -118,4 +125,5 @@ public class HealthEndpointAutoConfigurationTests {
 		}
 
 	}
+
 }

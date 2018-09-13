@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ package org.springframework.boot.cli.compiler.maven;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringReader;
 import java.io.StringWriter;
@@ -151,8 +150,9 @@ public class MavenSettings {
 		PrintWriter printer = new PrintWriter(message);
 		printer.println("Failed to determine active profiles:");
 		for (ModelProblemCollectorRequest problem : problemCollector.getProblems()) {
-			printer.println("    " + problem.getMessage() + (problem.getLocation() != null
-					? " at " + problem.getLocation() : ""));
+			String location = (problem.getLocation() != null)
+					? " at " + problem.getLocation() : "";
+			printer.println("    " + problem.getMessage() + location);
 			if (problem.getException() != null) {
 				printer.println(indentStackTrace(problem.getException(), "        "));
 			}
@@ -174,16 +174,8 @@ public class MavenSettings {
 	private String indentLines(String input, String indent) {
 		StringWriter indented = new StringWriter();
 		PrintWriter writer = new PrintWriter(indented);
-		String line;
 		BufferedReader reader = new BufferedReader(new StringReader(input));
-		try {
-			while ((line = reader.readLine()) != null) {
-				writer.println(indent + line);
-			}
-		}
-		catch (IOException ex) {
-			return input;
-		}
+		reader.lines().forEach((line) -> writer.println(indent + line));
 		return indented.toString();
 	}
 

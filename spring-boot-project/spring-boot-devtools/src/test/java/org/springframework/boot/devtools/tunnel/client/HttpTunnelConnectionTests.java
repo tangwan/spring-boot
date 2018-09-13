@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,21 +78,21 @@ public class HttpTunnelConnectionTests {
 	}
 
 	@Test
-	public void urlMustNotBeNull() throws Exception {
+	public void urlMustNotBeNull() {
 		this.thrown.expect(IllegalArgumentException.class);
 		this.thrown.expectMessage("URL must not be empty");
 		new HttpTunnelConnection(null, this.requestFactory);
 	}
 
 	@Test
-	public void urlMustNotBeEmpty() throws Exception {
+	public void urlMustNotBeEmpty() {
 		this.thrown.expect(IllegalArgumentException.class);
 		this.thrown.expectMessage("URL must not be empty");
 		new HttpTunnelConnection("", this.requestFactory);
 	}
 
 	@Test
-	public void urlMustNotBeMalformed() throws Exception {
+	public void urlMustNotBeMalformed() {
 		this.thrown.expect(IllegalArgumentException.class);
 		this.thrown.expectMessage("Malformed URL 'htttttp:///ttest'");
 		new HttpTunnelConnection("htttttp:///ttest", this.requestFactory);
@@ -161,8 +161,7 @@ public class HttpTunnelConnectionTests {
 
 	private TunnelChannel openTunnel(boolean singleThreaded) throws Exception {
 		HttpTunnelConnection connection = new HttpTunnelConnection(this.url,
-				this.requestFactory,
-				(singleThreaded ? new CurrentThreadExecutor() : null));
+				this.requestFactory, singleThreaded ? new CurrentThreadExecutor() : null);
 		return connection.open(this.incomingChannel, this.closeable);
 	}
 

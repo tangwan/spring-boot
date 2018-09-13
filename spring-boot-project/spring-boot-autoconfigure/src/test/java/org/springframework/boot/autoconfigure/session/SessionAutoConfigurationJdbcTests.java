@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,11 +22,12 @@ import org.junit.rules.ExpectedException;
 
 import org.springframework.beans.DirectFieldAccessor;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
-import org.springframework.boot.autoconfigure.DatabaseInitializationMode;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration;
-import org.springframework.boot.test.context.HideClassesClassLoader;
+import org.springframework.boot.autoconfigure.session.JdbcSessionConfiguration.SpringBootJdbcHttpSessionConfiguration;
+import org.springframework.boot.jdbc.DataSourceInitializationMode;
+import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.assertj.AssertableWebApplicationContext;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -66,10 +67,9 @@ public class SessionAutoConfigurationJdbcTests
 	@Test
 	public void defaultConfigWithUniqueStoreImplementation() {
 		this.contextRunner
-				.withClassLoader(
-						new HideClassesClassLoader(HazelcastSessionRepository.class,
-								MongoOperationsSessionRepository.class,
-								RedisOperationsSessionRepository.class))
+				.withClassLoader(new FilteredClassLoader(HazelcastSessionRepository.class,
+						MongoOperationsSessionRepository.class,
+						RedisOperationsSessionRepository.class))
 				.run(this::validateDefaultConfig);
 	}
 
@@ -79,10 +79,13 @@ public class SessionAutoConfigurationJdbcTests
 		assertThat(new DirectFieldAccessor(repository).getPropertyValue("tableName"))
 				.isEqualTo("SPRING_SESSION");
 		assertThat(context.getBean(JdbcSessionProperties.class).getInitializeSchema())
-				.isEqualTo(DatabaseInitializationMode.EMBEDDED);
+				.isEqualTo(DataSourceInitializationMode.EMBEDDED);
 		assertThat(context.getBean(JdbcOperations.class)
 				.queryForList("select * from SPRING_SESSION")).isEmpty();
-
+		SpringBootJdbcHttpSessionConfiguration configuration = context
+				.getBean(SpringBootJdbcHttpSessionConfiguration.class);
+		assertThat(new DirectFieldAccessor(configuration).getPropertyValue("cleanupCron"))
+				.isEqualTo("0 * * * * *");
 	}
 
 	@Test
@@ -96,7 +99,7 @@ public class SessionAutoConfigurationJdbcTests
 	}
 
 	@Test
-	public void disableDatabaseInitializer() {
+	public void disableDataSourceInitializer() {
 		this.contextRunner.withPropertyValues("spring.session.store-type=jdbc",
 				"spring.session.jdbc.initialize-schema=never").run((context) -> {
 					JdbcOperationsSessionRepository repository = validateSessionRepository(
@@ -105,7 +108,7 @@ public class SessionAutoConfigurationJdbcTests
 							.getPropertyValue("tableName")).isEqualTo("SPRING_SESSION");
 					assertThat(context.getBean(JdbcSessionProperties.class)
 							.getInitializeSchema())
-									.isEqualTo(DatabaseInitializationMode.NEVER);
+									.isEqualTo(DataSourceInitializationMode.NEVER);
 					this.thrown.expect(BadSqlGrammarException.class);
 					context.getBean(JdbcOperations.class)
 							.queryForList("select * from SPRING_SESSION");
@@ -114,10 +117,9 @@ public class SessionAutoConfigurationJdbcTests
 
 	@Test
 	public void customTableName() {
-		this.contextRunner
-				.withPropertyValues("spring.session.store-type=jdbc",
-						"spring.session.jdbc.table-name=FOO_BAR",
-						"spring.session.jdbc.schema=classpath:session/custom-schema-h2.sql")
+		this.contextRunner.withPropertyValues("spring.session.store-type=jdbc",
+				"spring.session.jdbc.table-name=FOO_BAR",
+				"spring.session.jdbc.schema=classpath:session/custom-schema-h2.sql")
 				.run((context) -> {
 					JdbcOperationsSessionRepository repository = validateSessionRepository(
 							context, JdbcOperationsSessionRepository.class);
@@ -125,9 +127,25 @@ public class SessionAutoConfigurationJdbcTests
 							.getPropertyValue("tableName")).isEqualTo("FOO_BAR");
 					assertThat(context.getBean(JdbcSessionProperties.class)
 							.getInitializeSchema())
-									.isEqualTo(DatabaseInitializationMode.EMBEDDED);
+									.isEqualTo(DataSourceInitializationMode.EMBEDDED);
 					assertThat(context.getBean(JdbcOperations.class)
 							.queryForList("select * from FOO_BAR")).isEmpty();
+				});
+	}
+
+	@Test
+	public void customCleanupCron() {
+		this.contextRunner
+				.withPropertyValues("spring.session.store-type=jdbc",
+						"spring.session.jdbc.cleanup-cron=0 0 12 * * *")
+				.run((context) -> {
+					assertThat(
+							context.getBean(JdbcSessionProperties.class).getCleanupCron())
+									.isEqualTo("0 0 12 * * *");
+					SpringBootJdbcHttpSessionConfiguration configuration = context
+							.getBean(SpringBootJdbcHttpSessionConfiguration.class);
+					assertThat(new DirectFieldAccessor(configuration)
+							.getPropertyValue("cleanupCron")).isEqualTo("0 0 12 * * *");
 				});
 	}
 

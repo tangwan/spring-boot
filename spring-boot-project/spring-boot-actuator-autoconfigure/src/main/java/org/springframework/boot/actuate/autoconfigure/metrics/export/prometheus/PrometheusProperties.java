@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,66 +24,37 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * {@link ConfigurationProperties} for configuring metrics export to Prometheus.
  *
  * @author Jon Schneider
+ * @author Stephane Nicoll
  * @since 2.0.0
  */
-@ConfigurationProperties(prefix = "spring.metrics.prometheus")
+@ConfigurationProperties(prefix = "management.metrics.export.prometheus")
 public class PrometheusProperties {
 
 	/**
-	 * Enable publishing to Prometheus.
+	 * Whether to enable publishing descriptions as part of the scrape payload to
+	 * Prometheus. Turn this off to minimize the amount of data sent on each scrape.
 	 */
-	private Boolean enabled = true;
+	private boolean descriptions = true;
 
 	/**
-	 * Enable publishing descriptions as part of the scrape payload to Prometheus. Turn
-	 * this off to minimize the amount of data sent on each scrape.
+	 * Step size (i.e. reporting frequency) to use.
 	 */
-	private Boolean descriptions = true;
+	private Duration step = Duration.ofMinutes(1);
 
-	/**
-	 * The bucket filter clamping the bucket domain of timer percentiles histograms to
-	 * some max value. This is used to limit the number of buckets shipped to Prometheus
-	 * to save on storage.
-	 */
-	private Duration timerPercentilesMax = Duration.ofMinutes(2);
-
-	/**
-	 * The bucket filter clamping the bucket domain of timer percentiles histograms to
-	 * some min value. This is used to limit the number of buckets shipped to Prometheus
-	 * to save on storage.
-	 */
-	private Duration timerPercentilesMin = Duration.ofMillis(10);
-
-	public Boolean getEnabled() {
-		return this.enabled;
-	}
-
-	public void setEnabled(Boolean enabled) {
-		this.enabled = enabled;
-	}
-
-	public Boolean getDescriptions() {
+	public boolean isDescriptions() {
 		return this.descriptions;
 	}
 
-	public void setDescriptions(Boolean descriptions) {
+	public void setDescriptions(boolean descriptions) {
 		this.descriptions = descriptions;
 	}
 
-	public Duration getTimerPercentilesMax() {
-		return this.timerPercentilesMax;
+	public Duration getStep() {
+		return this.step;
 	}
 
-	public void setTimerPercentilesMax(Duration timerPercentilesMax) {
-		this.timerPercentilesMax = timerPercentilesMax;
-	}
-
-	public Duration getTimerPercentilesMin() {
-		return this.timerPercentilesMin;
-	}
-
-	public void setTimerPercentilesMin(Duration timerPercentilesMin) {
-		this.timerPercentilesMin = timerPercentilesMin;
+	public void setStep(Duration step) {
+		this.step = step;
 	}
 
 }
