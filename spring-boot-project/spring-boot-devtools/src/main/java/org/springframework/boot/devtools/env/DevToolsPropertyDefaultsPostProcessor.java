@@ -1,11 +1,11 @@
 /*
- * Copyright 2012-2018 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,6 +23,7 @@ import java.util.Map;
 import org.apache.commons.logging.Log;
 
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.devtools.DevToolsEnablementDeducer;
 import org.springframework.boot.devtools.logger.DevToolsLogFactory;
 import org.springframework.boot.devtools.restart.Restarter;
 import org.springframework.boot.env.EnvironmentPostProcessor;
@@ -31,6 +32,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.MapPropertySource;
+import org.springframework.util.ClassUtils;
 
 /**
  * {@link EnvironmentPostProcessor} to add properties that make sense when working at
@@ -44,10 +46,15 @@ import org.springframework.core.env.MapPropertySource;
 @Order(Ordered.LOWEST_PRECEDENCE)
 public class DevToolsPropertyDefaultsPostProcessor implements EnvironmentPostProcessor {
 
-	private static final Log logger = DevToolsLogFactory
-			.getLog(DevToolsPropertyDefaultsPostProcessor.class);
+	private static final Log logger = DevToolsLogFactory.getLog(DevToolsPropertyDefaultsPostProcessor.class);
 
 	private static final String ENABLED = "spring.devtools.add-properties";
+
+	private static final String WEB_LOGGING = "logging.level.web";
+
+	private static final String[] WEB_ENVIRONMENT_CLASSES = {
+			"org.springframework.web.context.ConfigurableWebEnvironment",
+			"org.springframework.boot.web.reactive.context.ConfigurableReactiveWebEnvironment" };
 
 	private static final Map<String, Object> PROPERTIES;
 
@@ -65,19 +72,21 @@ public class DevToolsPropertyDefaultsPostProcessor implements EnvironmentPostPro
 		properties.put("spring.mvc.log-resolved-exception", "true");
 		properties.put("server.error.include-stacktrace", "ALWAYS");
 		properties.put("server.servlet.jsp.init-parameters.development", "true");
-		properties.put("spring.reactor.stacktrace-mode.enabled", "true");
-		properties.put("logging.level.web", "debug");
+		properties.put("spring.reactor.debug", "true");
 		PROPERTIES = Collections.unmodifiableMap(properties);
 	}
 
 	@Override
-	public void postProcessEnvironment(ConfigurableEnvironment environment,
-			SpringApplication application) {
-		if (isLocalApplication(environment) && canAddProperties(environment)) {
-			logger.info("Devtools property and logging defaults active! Set '" + ENABLED
-					+ "' to 'false' to disable");
-			environment.getPropertySources()
-					.addLast(new MapPropertySource("devtools", PROPERTIES));
+	public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
+		if (DevToolsEnablementDeducer.shouldEnable(Thread.currentThread()) && isLocalApplication(environment)) {
+			if (canAddProperties(environment)) {
+				logger.info("Devtools property defaults active! Set '" + ENABLED + "' to 'false' to disable");
+				environment.getPropertySources().addLast(new MapPropertySource("devtools", PROPERTIES));
+			}
+			if (isWebApplication(environment) && !environment.containsProperty(WEB_LOGGING)) {
+				logger.info("For additional web related logging consider " + "setting the '" + WEB_LOGGING
+						+ "' property to 'DEBUG'");
+			}
 		}
 	}
 
@@ -104,6 +113,25 @@ public class DevToolsPropertyDefaultsPostProcessor implements EnvironmentPostPro
 
 	private boolean isRemoteRestartEnabled(Environment environment) {
 		return environment.containsProperty("spring.devtools.remote.secret");
+	}
+
+	private boolean isWebApplication(Environment environment) {
+		for (String candidate : WEB_ENVIRONMENT_CLASSES) {
+			Class<?> environmentClass = resolveClassName(candidate, environment.getClass().getClassLoader());
+			if (environmentClass != null && environmentClass.isInstance(environment)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private Class<?> resolveClassName(String candidate, ClassLoader classLoader) {
+		try {
+			return ClassUtils.resolveClassName(candidate, classLoader);
+		}
+		catch (IllegalArgumentException ex) {
+			return null;
+		}
 	}
 
 }

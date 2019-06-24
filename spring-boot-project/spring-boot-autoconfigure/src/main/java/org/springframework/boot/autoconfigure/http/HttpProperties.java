@@ -1,11 +1,11 @@
 /*
- * Copyright 2012-2018 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -43,7 +43,7 @@ public class HttpProperties {
 	/**
 	 * HTTP encoding properties.
 	 */
-	private Encoding encoding = new Encoding();
+	private final Encoding encoding = new Encoding();
 
 	public boolean isLogRequestDetails() {
 		return this.logRequestDetails;
@@ -55,10 +55,6 @@ public class HttpProperties {
 
 	public Encoding getEncoding() {
 		return this.encoding;
-	}
-
-	public void setEncoding(Encoding encoding) {
-		this.encoding = encoding;
 	}
 
 	/**
@@ -137,8 +133,7 @@ public class HttpProperties {
 		}
 
 		public boolean shouldForce(Type type) {
-			Boolean force = (type != Type.REQUEST) ? this.forceResponse
-					: this.forceRequest;
+			Boolean force = (type != Type.REQUEST) ? this.forceResponse : this.forceRequest;
 			if (force == null) {
 				force = this.force;
 			}

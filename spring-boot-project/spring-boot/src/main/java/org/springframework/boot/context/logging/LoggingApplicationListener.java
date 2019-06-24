@@ -1,11 +1,11 @@
 /*
- * Copyright 2012-2018 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,6 +34,7 @@ import org.springframework.boot.context.event.ApplicationPreparedEvent;
 import org.springframework.boot.context.event.ApplicationStartingEvent;
 import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.boot.context.properties.source.ConfigurationPropertyName;
 import org.springframework.boot.logging.LogFile;
 import org.springframework.boot.logging.LogLevel;
 import org.springframework.boot.logging.LoggingInitializationContext;
@@ -59,7 +60,7 @@ import org.springframework.util.StringUtils;
  * environment contains a {@code logging.config} property it will be used to bootstrap the
  * logging system, otherwise a default configuration is used. Regardless, logging levels
  * will be customized if the environment contains {@code logging.level.*} entries and
- * logging groups can be defined with {@code logging.group} .
+ * logging groups can be defined with {@code logging.group}.
  * <p>
  * Debug and trace logging for Spring, Tomcat, Jetty and Hibernate will be enabled when
  * the environment contains {@code debug} or {@code trace} properties that aren't set to
@@ -67,8 +68,8 @@ import org.springframework.util.StringUtils;
  * {@literal java -jar myapp.jar [--debug | --trace]}). If you prefer to ignore these
  * properties you can set {@link #setParseArgs(boolean) parseArgs} to {@code false}.
  * <p>
- * By default, log output is only written to the console. If a log file is required the
- * {@code logging.path} and {@code logging.file} properties can be used.
+ * By default, log output is only written to the console. If a log file is required, the
+ * {@code logging.file.path} and {@code logging.file.name} properties can be used.
  * <p>
  * Some system properties may be set as side effects, and these can be useful if the
  * logging configuration supports placeholders (i.e. log4j or logback):
@@ -88,11 +89,14 @@ import org.springframework.util.StringUtils;
  */
 public class LoggingApplicationListener implements GenericApplicationListener {
 
-	private static final Bindable<Map<String, String>> STRING_STRING_MAP = Bindable
-			.mapOf(String.class, String.class);
+	private static final ConfigurationPropertyName LOGGING_LEVEL = ConfigurationPropertyName.of("logging.level");
 
-	private static final Bindable<Map<String, String[]>> STRING_STRINGS_MAP = Bindable
-			.mapOf(String.class, String[].class);
+	private static final ConfigurationPropertyName LOGGING_GROUP = ConfigurationPropertyName.of("logging.group");
+
+	private static final Bindable<Map<String, String>> STRING_STRING_MAP = Bindable.mapOf(String.class, String.class);
+
+	private static final Bindable<Map<String, String[]>> STRING_STRINGS_MAP = Bindable.mapOf(String.class,
+			String[].class);
 
 	/**
 	 * The default order for the LoggingApplicationListener.
@@ -123,13 +127,15 @@ public class LoggingApplicationListener implements GenericApplicationListener {
 		loggers.add("web", "org.springframework.core.codec");
 		loggers.add("web", "org.springframework.http");
 		loggers.add("web", "org.springframework.web");
+		loggers.add("web", "org.springframework.boot.actuate.endpoint.web");
+		loggers.add("web", "org.springframework.boot.web.servlet.ServletContextInitializerBeans");
 		loggers.add("sql", "org.springframework.jdbc.core");
 		loggers.add("sql", "org.hibernate.SQL");
+		loggers.add("sql", "org.jooq.tools.LoggerListener");
 		DEFAULT_GROUP_LOGGERS = Collections.unmodifiableMap(loggers);
 	}
 
 	private static final Map<LogLevel, List<String>> LOG_LEVEL_LOGGERS;
-
 	static {
 		MultiValueMap<LogLevel, String> loggers = new LinkedMultiValueMap<>();
 		loggers.add(LogLevel.DEBUG, "sql");
@@ -144,13 +150,12 @@ public class LoggingApplicationListener implements GenericApplicationListener {
 	}
 
 	private static final Class<?>[] EVENT_TYPES = { ApplicationStartingEvent.class,
-			ApplicationEnvironmentPreparedEvent.class, ApplicationPreparedEvent.class,
-			ContextClosedEvent.class, ApplicationFailedEvent.class };
+			ApplicationEnvironmentPreparedEvent.class, ApplicationPreparedEvent.class, ContextClosedEvent.class,
+			ApplicationFailedEvent.class };
 
-	private static final Class<?>[] SOURCE_TYPES = { SpringApplication.class,
-			ApplicationContext.class };
+	private static final Class<?>[] SOURCE_TYPES = { SpringApplication.class, ApplicationContext.class };
 
-	private static AtomicBoolean shutdownHookRegistered = new AtomicBoolean(false);
+	private static final AtomicBoolean shutdownHookRegistered = new AtomicBoolean(false);
 
 	private final Log logger = LogFactory.getLog(getClass());
 
@@ -189,14 +194,13 @@ public class LoggingApplicationListener implements GenericApplicationListener {
 			onApplicationStartingEvent((ApplicationStartingEvent) event);
 		}
 		else if (event instanceof ApplicationEnvironmentPreparedEvent) {
-			onApplicationEnvironmentPreparedEvent(
-					(ApplicationEnvironmentPreparedEvent) event);
+			onApplicationEnvironmentPreparedEvent((ApplicationEnvironmentPreparedEvent) event);
 		}
 		else if (event instanceof ApplicationPreparedEvent) {
 			onApplicationPreparedEvent((ApplicationPreparedEvent) event);
 		}
-		else if (event instanceof ContextClosedEvent && ((ContextClosedEvent) event)
-				.getApplicationContext().getParent() == null) {
+		else if (event instanceof ContextClosedEvent
+				&& ((ContextClosedEvent) event).getApplicationContext().getParent() == null) {
 			onContextClosedEvent();
 		}
 		else if (event instanceof ApplicationFailedEvent) {
@@ -205,23 +209,19 @@ public class LoggingApplicationListener implements GenericApplicationListener {
 	}
 
 	private void onApplicationStartingEvent(ApplicationStartingEvent event) {
-		this.loggingSystem = LoggingSystem
-				.get(event.getSpringApplication().getClassLoader());
+		this.loggingSystem = LoggingSystem.get(event.getSpringApplication().getClassLoader());
 		this.loggingSystem.beforeInitialize();
 	}
 
-	private void onApplicationEnvironmentPreparedEvent(
-			ApplicationEnvironmentPreparedEvent event) {
+	private void onApplicationEnvironmentPreparedEvent(ApplicationEnvironmentPreparedEvent event) {
 		if (this.loggingSystem == null) {
-			this.loggingSystem = LoggingSystem
-					.get(event.getSpringApplication().getClassLoader());
+			this.loggingSystem = LoggingSystem.get(event.getSpringApplication().getClassLoader());
 		}
 		initialize(event.getEnvironment(), event.getSpringApplication().getClassLoader());
 	}
 
 	private void onApplicationPreparedEvent(ApplicationPreparedEvent event) {
-		ConfigurableListableBeanFactory beanFactory = event.getApplicationContext()
-				.getBeanFactory();
+		ConfigurableListableBeanFactory beanFactory = event.getApplicationContext().getBeanFactory();
 		if (!beanFactory.containsBean(LOGGING_SYSTEM_BEAN_NAME)) {
 			beanFactory.registerSingleton(LOGGING_SYSTEM_BEAN_NAME, this.loggingSystem);
 		}
@@ -245,8 +245,7 @@ public class LoggingApplicationListener implements GenericApplicationListener {
 	 * @param environment the environment
 	 * @param classLoader the classloader
 	 */
-	protected void initialize(ConfigurableEnvironment environment,
-			ClassLoader classLoader) {
+	protected void initialize(ConfigurableEnvironment environment, ClassLoader classLoader) {
 		new LoggingSystemProperties(environment).apply();
 		LogFile logFile = LogFile.get(environment);
 		if (logFile != null) {
@@ -274,10 +273,8 @@ public class LoggingApplicationListener implements GenericApplicationListener {
 		return (value != null && !value.equals("false"));
 	}
 
-	private void initializeSystem(ConfigurableEnvironment environment,
-			LoggingSystem system, LogFile logFile) {
-		LoggingInitializationContext initializationContext = new LoggingInitializationContext(
-				environment);
+	private void initializeSystem(ConfigurableEnvironment environment, LoggingSystem system, LogFile logFile) {
+		LoggingInitializationContext initializationContext = new LoggingInitializationContext(environment);
 		String logConfig = environment.getProperty(CONFIG_PROPERTY);
 		if (ignoreLogConfig(logConfig)) {
 			system.initialize(initializationContext, null, logFile);
@@ -289,8 +286,8 @@ public class LoggingApplicationListener implements GenericApplicationListener {
 			}
 			catch (Exception ex) {
 				// NOTE: We can't use the logger here to report the problem
-				System.err.println("Logging system failed to initialize "
-						+ "using configuration from '" + logConfig + "'");
+				System.err.println(
+						"Logging system failed to initialize " + "using configuration from '" + logConfig + "'");
 				ex.printStackTrace(System.err);
 				throw new IllegalStateException(ex);
 			}
@@ -301,8 +298,7 @@ public class LoggingApplicationListener implements GenericApplicationListener {
 		return !StringUtils.hasLength(logConfig) || logConfig.startsWith("-D");
 	}
 
-	private void initializeFinalLoggingLevels(ConfigurableEnvironment environment,
-			LoggingSystem system) {
+	private void initializeFinalLoggingLevels(ConfigurableEnvironment environment, LoggingSystem system) {
 		if (this.springBootLogging != null) {
 			initializeLogLevel(system, this.springBootLogging);
 		}
@@ -310,12 +306,17 @@ public class LoggingApplicationListener implements GenericApplicationListener {
 	}
 
 	protected void initializeLogLevel(LoggingSystem system, LogLevel level) {
-		List<String> loggers = LOG_LEVEL_LOGGERS.get(level);
-		if (loggers != null) {
-			for (String logger : loggers) {
-				system.setLogLevel(logger, level);
-			}
+		LOG_LEVEL_LOGGERS.getOrDefault(level, Collections.emptyList())
+				.forEach((logger) -> initializeLogLevel(system, level, logger));
+	}
+
+	private void initializeLogLevel(LoggingSystem system, LogLevel level, String logger) {
+		List<String> groupLoggers = DEFAULT_GROUP_LOGGERS.get(logger);
+		if (groupLoggers == null) {
+			system.setLogLevel(logger, level);
+			return;
 		}
+		groupLoggers.forEach((groupLogger) -> system.setLogLevel(groupLogger, level));
 	}
 
 	protected void setLogLevels(LoggingSystem system, Environment environment) {
@@ -323,9 +324,9 @@ public class LoggingApplicationListener implements GenericApplicationListener {
 			return;
 		}
 		Binder binder = Binder.get(environment);
-		Map<String, String[]> groups = getGroups(binder);
-		Map<String, String> levels = binder.bind("logging.level", STRING_STRING_MAP)
-				.orElseGet(Collections::emptyMap);
+		Map<String, String[]> groups = getGroups();
+		binder.bind(LOGGING_GROUP, STRING_STRINGS_MAP.withExistingValue(groups));
+		Map<String, String> levels = binder.bind(LOGGING_LEVEL, STRING_STRING_MAP).orElseGet(Collections::emptyMap);
 		levels.forEach((name, level) -> {
 			String[] groupedNames = groups.get(name);
 			if (ObjectUtils.isEmpty(groupedNames)) {
@@ -337,11 +338,9 @@ public class LoggingApplicationListener implements GenericApplicationListener {
 		});
 	}
 
-	private Map<String, String[]> getGroups(Binder binder) {
+	private Map<String, String[]> getGroups() {
 		Map<String, String[]> groups = new LinkedHashMap<>();
-		DEFAULT_GROUP_LOGGERS.forEach(
-				(name, loggers) -> groups.put(name, StringUtils.toStringArray(loggers)));
-		binder.bind("logging.group", STRING_STRINGS_MAP.withExistingValue(groups));
+		DEFAULT_GROUP_LOGGERS.forEach((name, loggers) -> groups.put(name, StringUtils.toStringArray(loggers)));
 		return groups;
 	}
 
@@ -357,25 +356,23 @@ public class LoggingApplicationListener implements GenericApplicationListener {
 			system.setLogLevel(name, coerceLogLevel(level));
 		}
 		catch (RuntimeException ex) {
-			this.logger.error("Cannot set level: " + level + " for '" + name + "'");
+			this.logger.error("Cannot set level '" + level + "' for '" + name + "'");
 		}
 	}
 
 	private LogLevel coerceLogLevel(String level) {
-		if ("false".equalsIgnoreCase(level)) {
+		String trimmedLevel = level.trim();
+		if ("false".equalsIgnoreCase(trimmedLevel)) {
 			return LogLevel.OFF;
 		}
-		return LogLevel.valueOf(level.toUpperCase(Locale.ENGLISH));
+		return LogLevel.valueOf(trimmedLevel.toUpperCase(Locale.ENGLISH));
 	}
 
-	private void registerShutdownHookIfNecessary(Environment environment,
-			LoggingSystem loggingSystem) {
-		boolean registerShutdownHook = environment
-				.getProperty(REGISTER_SHUTDOWN_HOOK_PROPERTY, Boolean.class, false);
+	private void registerShutdownHookIfNecessary(Environment environment, LoggingSystem loggingSystem) {
+		boolean registerShutdownHook = environment.getProperty(REGISTER_SHUTDOWN_HOOK_PROPERTY, Boolean.class, false);
 		if (registerShutdownHook) {
 			Runnable shutdownHandler = loggingSystem.getShutdownHandler();
-			if (shutdownHandler != null
-					&& shutdownHookRegistered.compareAndSet(false, true)) {
+			if (shutdownHandler != null && shutdownHookRegistered.compareAndSet(false, true)) {
 				registerShutdownHook(new Thread(shutdownHandler));
 			}
 		}
@@ -405,7 +402,7 @@ public class LoggingApplicationListener implements GenericApplicationListener {
 	/**
 	 * Sets if initialization arguments should be parsed for {@literal debug} and
 	 * {@literal trace} properties (usually defined from {@literal --debug} or
-	 * {@literal --trace} command line args. Defaults to {@code true}.
+	 * {@literal --trace} command line args). Defaults to {@code true}.
 	 * @param parseArgs if arguments should be parsed
 	 */
 	public void setParseArgs(boolean parseArgs) {

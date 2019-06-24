@@ -1,11 +1,11 @@
 /*
- * Copyright 2012-2018 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -577,8 +577,8 @@ public class RabbitProperties {
 		private AcknowledgeMode acknowledgeMode;
 
 		/**
-		 * Number of messages to be handled in a single request. It should be greater than
-		 * or equal to the transaction size (if used).
+		 * Maximum number of unacknowledged messages that can be outstanding at each
+		 * consumer.
 		 */
 		private Integer prefetch;
 
@@ -661,9 +661,8 @@ public class RabbitProperties {
 		private Integer maxConcurrency;
 
 		/**
-		 * Number of messages to be processed in a transaction. That is, the number of
-		 * messages between acks. For best results, it should be less than or equal to the
-		 * prefetch count.
+		 * Number of messages to be processed between acks when the acknowledge mode is
+		 * AUTO. If larger than prefetch, prefetch will be increased to this value.
 		 */
 		private Integer transactionSize;
 
@@ -777,7 +776,7 @@ public class RabbitProperties {
 		 * Name of the default queue to receive messages from when none is specified
 		 * explicitly.
 		 */
-		private String queue;
+		private String defaultReceiveQueue;
 
 		public Retry getRetry() {
 			return this.retry;
@@ -823,12 +822,12 @@ public class RabbitProperties {
 			this.routingKey = routingKey;
 		}
 
-		public String getQueue() {
-			return this.queue;
+		public String getDefaultReceiveQueue() {
+			return this.defaultReceiveQueue;
 		}
 
-		public void setQueue(String queue) {
-			this.queue = queue;
+		public void setDefaultReceiveQueue(String defaultReceiveQueue) {
+			this.defaultReceiveQueue = defaultReceiveQueue;
 		}
 
 	}
